@@ -248,28 +248,13 @@
       { label: "Snowflake", eq: "sqrt(x*x+y*y)=1+0.2*cos(6*atan2(y,x))" },
       { label: "Clover", eq: "sqrt(x*x+y*y)=sin(4*atan2(y,x))" },
       { label: "Galaxy", eq: "sqrt(x*x+y*y)=1+0.1*sin(30*atan2(y,x)+5*sqrt(x*x+y*y))" },
-      { label: "Ripple", eq: "sin(5*sqrt(x*x+y*y))=0" },
-      { label: "Spiral Fractal", eq: "sin(8*log(sqrt(x*x+y*y))-6*atan2(y,x))=0" },
-      { label: "Recursive Web", eq: "sin(12*sqrt(x*x+y*y))*cos(8*atan2(y,x))=0" },
-      { label: "Crystal Web", eq: "cos(20*sqrt(x*x+y*y))*sin(12*atan2(y,x))=0" },
-      { label: "Fern Wave", eq: "sin(10*x)*cos(10*y)=sin(5*sqrt(x*x+y*y))" },
-      { label: "Chaos Rings", eq: "sin(30*sqrt(x*x+y*y))*sin(7*atan2(y,x))=0" },
-    ];
-
-
-    const GALLERY = [
-      { name: 'Galaxy', eq: 'sin(A*x)/(1+0.04*x^2)', params: { A: 4 }, emotion: 'cosmic' },
-      { name: 'Heartbeat', eq: 'A*exp(-0.3*sin(B*x)^2)*sin(C*x)', params: { A: 2, B: 1, C: 8 }, emotion: 'epic' },
-      { name: 'Aurora Wave', eq: 'A*sin(B*x)*cos(0.3*x)', params: { A: 2, B: 2 }, emotion: 'aurora' },
-      { name: 'Butterfly', eq: 'A*sin(B*x)*exp(cos(x))', params: { A: 0.6, B: 3 }, emotion: 'dream' },
-      { name: 'Infinity Loop', eq: 'A*sin(B*x+C)', params: { A: 3, B: 0.5, C: 0 }, emotion: 'mystery' },
-      { name: 'Still Water', eq: 'A*sin(B*x)', params: { A: 1.5, B: 1 }, emotion: 'calm' },
     ];
 
     const X_MIN = -12;
     const X_MAX = 12;
     const VISUAL_SAMPLES = 320;
     const AUDIO_STEPS = 32;
+    const LOOP_SAMPLES = 96;
     const MAX_LAYERS = 4;
     const CURVE_SAMPLE_COUNT = 420;
     const MIN_CAMERA_SCALE = 1e-100;
@@ -277,6 +262,12 @@
 
     function lerp(a, b, t) {
       return a + (b - a) * t;
+    }
+
+    function mod1(x) {
+      if (!Number.isFinite(x)) return 0;
+      const m = x % 1;
+      return m < 0 ? m + 1 : m;
     }
 
     function easeOutCubic(t) {
@@ -708,6 +699,69 @@
       return pts.map((p) => ({ ...p, y: p.y === null ? null : p.y / maxAbs }));
     }
 
+    // A curve is treated as a "closed" living instrument when it forms a loop with
+    // no real beginning or end — currently that's every implicit equation (hearts,
+    // roses, stars, mandalas, lemniscates, etc all parse to type 'implicit').
+    function isClosedModel(model) {
+      return !!model?.valid && model.type === 'implicit';
+    }
+
+    // Traces an implicit curve as an ordered loop of points by radially scanning
+    // outward from the origin at evenly spaced angles and finding the first sign
+    // change (zero crossing) of the implicit expression along each ray. This turns
+    // any star-shaped-ish closed curve into a continuous, seamless path suitable for
+    // a playhead to travel around forever.
+    function traceClosedLoop(model, params, count) {
+      if (!model?.valid || model.type !== 'implicit') return [];
+      const rMax = 8;
+      const rSteps = 160;
+      const raw = [];
+      for (let i = 0; i < count; i++) {
+        const theta = (i / count) * Math.PI * 2;
+        const ct = Math.cos(theta), st = Math.sin(theta);
+        let prevR = 0;
+        let prevV = evaluateCompiled(model.expr.code, { x: 0, y: 0, ...params });
+        let hitR = null;
+        for (let j = 1; j <= rSteps; j++) {
+          const r = (j / rSteps) * rMax;
+          const v = evaluateCompiled(model.expr.code, { x: r * ct, y: r * st, ...params });
+          if (v === 0) {
+            hitR = r;
+            break;
+          }
+          // Many closed curves (lemniscates, roses, etc) pass exactly through the
+          // origin, so the value there is often 0. Treating that as a valid "previous
+          // sign" causes a false crossing on the very first step, trapping the trace
+          // at r≈0. Only compare signs once we have a genuine nonzero reference.
+          if (prevV !== null && prevV !== 0 && v !== null && Math.sign(prevV) !== Math.sign(v)) {
+            const ratio = Math.abs(prevV) / (Math.abs(prevV) + Math.abs(v) || 1);
+            hitR = lerp(prevR, r, ratio);
+            break;
+          }
+          prevR = r;
+          prevV = v;
+        }
+        raw.push({ theta, r: hitR });
+      }
+      // Fill any angles that missed a crossing by interpolating between nearest hits,
+      // so the loop stays continuous even through numerically awkward spots.
+      const n = raw.length;
+      for (let i = 0; i < n; i++) {
+        if (raw[i].r !== null) continue;
+        let a = i, steps = 0;
+        while (raw[a].r === null && steps < n) { a = (a - 1 + n) % n; steps++; }
+        let b = i; steps = 0;
+        while (raw[b].r === null && steps < n) { b = (b + 1) % n; steps++; }
+        raw[i].r = raw[a].r !== null && raw[b].r !== null ? (raw[a].r + raw[b].r) / 2 : (raw[a].r ?? raw[b].r ?? 1);
+      }
+      return raw.map((p) => ({
+        theta: p.theta,
+        r: p.r,
+        x: p.r * Math.cos(p.theta),
+        y: p.r * Math.sin(p.theta),
+      }));
+    }
+
     function sampleImplicitSegments(model, params, viewport, w, h, progress = 1) {
       if (!model?.valid || model.type !== 'implicit') return [];
       const cols = Math.max(36, Math.min(130, Math.floor(w / 9)));
@@ -795,6 +849,18 @@
       if (y1 === null || y2 === null) return null;
       const slope = (y2 - y1) / (2 * dx);
       return isFinite(slope) ? slope : null;
+    }
+
+    function evalOpenPlayheadPoint(layer, progress) {
+      const model = layer.model;
+      if (model.type === 'parametric' || model.type === 'polar') {
+        const tMin = layer.params.__tMin ?? model.tMin ?? -Math.PI * 2;
+        const tMax = layer.params.__tMax ?? model.tMax ?? Math.PI * 2;
+        const t = lerp(tMin, tMax, progress);
+        return evalParametric(model, layer.params, t);
+      }
+      const x = lerp(X_MIN, X_MAX, progress);
+      return { x, y: evalModelY(model, layer.params, x) };
     }
 
     function computeMarkers(pts) {
@@ -935,6 +1001,8 @@
       const [muted, setMuted] = useState(false);
       const [panelMode, setPanelMode] = useState(null); // 'templates' | 'gallery'
       const [showLayers, setShowLayers] = useState(true);
+      const [showMoodPanel, setShowMoodPanel] = useState(true);
+      const [showControlPanel, setShowControlPanel] = useState(true);
       const [equationAnimating, setEquationAnimating] = useState(false);
       const [fullscreen, setFullscreen] = useState(false);
       const [showNavigator, setShowNavigator] = useState(true);
@@ -965,6 +1033,12 @@
         interactingUntil: 0,
       });
       const initialDrawRef = useRef({ start: performance.now(), active: true, duration: 2200 });
+      const playingRef = useRef(false);
+      const tempoRef = useRef(96);
+      const idleStartRef = useRef(performance.now());
+
+      useEffect(() => { playingRef.current = playing; }, [playing]);
+      useEffect(() => { tempoRef.current = tempo; }, [tempo]);
 
       const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
 
@@ -982,8 +1056,19 @@
         return layers.map((l) => {
           const model = makeMathModel(l.equationStr);
           const detected = model.variables || [];
-          const audioPts = model.valid ? sampleAudioModel(model, l.params, AUDIO_STEPS) : [];
-          return { ...l, model, code: model.expr || model.xExpr || model.rExpr || null, detected, audioPts, valid: !!model.valid, error: model.error || '' };
+          let closed = false;
+          let loopPts = [];
+          let audioPts = [];
+          try {
+            closed = isClosedModel(model);
+            loopPts = closed ? traceClosedLoop(model, l.params, LOOP_SAMPLES) : [];
+            audioPts = model.valid && !closed ? sampleAudioModel(model, l.params, AUDIO_STEPS) : [];
+          } catch (derivedErr) {
+            closed = false;
+            loopPts = [];
+            audioPts = [];
+          }
+          return { ...l, model, code: model.expr || model.xExpr || model.rExpr || null, detected, audioPts, loopPts, closed, valid: !!model.valid, error: model.error || '' };
         });
       }, [layers]);
 
@@ -1470,6 +1555,49 @@
               }
               ctx.stroke();
               ctx.shadowBlur = 0;
+
+              try {
+                const n = layer.loopPts.length;
+                if (n > 1) {
+                  const loopDurationSec = Math.max(0.5, (60 / (tempoRef.current || 96)) * 8);
+                  let progress;
+                  if (playingRef.current && Tone?.Transport) {
+                    progress = mod1(Tone.Transport.seconds / loopDurationSec);
+                  } else {
+                    const idleDurationMs = loopDurationSec * 1000 * 2.4;
+                    progress = mod1((now - idleStartRef.current) / idleDurationMs);
+                  }
+                  const idxF = progress * n;
+                  const i0 = ((Math.floor(idxF) % n) + n) % n;
+                  const i1 = (i0 + 1) % n;
+                  const frac = idxF - Math.floor(idxF);
+                  const p0 = layer.loopPts[i0];
+                  const p1 = layer.loopPts[i1];
+                  if (p0 && p1 && Number.isFinite(p0.x) && Number.isFinite(p1.x)) {
+                    const wx = lerp(p0.x, p1.x, frac);
+                    const wy = lerp(p0.y, p1.y, frac);
+                    const head = project(wx, wy);
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.globalAlpha = 0.3 * layer.opacity;
+                    ctx.fillStyle = glowColor;
+                    ctx.shadowColor = glowColor;
+                    ctx.shadowBlur = 28;
+                    ctx.beginPath();
+                    ctx.arc(head.x, head.y, 13, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = layer.opacity;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowBlur = 18;
+                    ctx.beginPath();
+                    ctx.arc(head.x, head.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                  }
+                }
+              } catch (playheadErr) {
+                // Never let a geometry edge case take down the whole render loop.
+              }
               continue;
             }
 
@@ -1531,6 +1659,43 @@
                 ctx.arc(m.x, m.y, 4, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
+              }
+
+              try {
+                const n = AUDIO_STEPS;
+                const stepDur = Math.max(0.02, (60 / (tempoRef.current || 96)) / 2);
+                const loopSeconds = stepDur * n;
+                let progress;
+                if (playingRef.current && Tone?.Transport) {
+                  progress = mod1(Tone.Transport.seconds / loopSeconds);
+                } else {
+                  const idleDurationMs = loopSeconds * 1000 * 1.4;
+                  progress = mod1((now - idleStartRef.current) / idleDurationMs);
+                }
+                const point = evalOpenPlayheadPoint(layer, progress);
+                if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) {
+                  const head = project(point.x, point.y);
+                  if (head.x > -20 && head.x < w + 20 && head.y > -20 && head.y < h + 20) {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.globalAlpha = 0.3 * layer.opacity;
+                    ctx.fillStyle = glowColor;
+                    ctx.shadowColor = glowColor;
+                    ctx.shadowBlur = 26;
+                    ctx.beginPath();
+                    ctx.arc(head.x, head.y, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = layer.opacity;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowBlur = 16;
+                    ctx.beginPath();
+                    ctx.arc(head.x, head.y, 5.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                  }
+                }
+              } catch (playheadErr) {
+                // Never let a geometry edge case take down the whole render loop.
               }
             }
           }
@@ -1700,10 +1865,45 @@
         const chains = audioChainsRef.current;
         derivedLayers.forEach((layer) => {
           const chain = chains[layer.id];
-          if (!chain || !layer.valid || !layer.audioPts.length) return;
+          if (!chain || !layer.valid) return;
           chain.sequence?.dispose();
           chain.sequence = null;
           const emotion = EMOTIONS[layer.emotionKey];
+
+          if (layer.closed && layer.loopPts.length > 1) {
+            // Closed curves become endless instruments: a single continuous loop,
+            // synced to the same clock that drives the visual playhead, with no
+            // start/end note — it simply wraps and keeps going.
+            try {
+              const pts = layer.loopPts.filter((p) => Number.isFinite(p?.r));
+              const n = pts.length;
+              if (n < 2) return;
+              const maxR = pts.reduce((m, p) => Math.max(m, p.r), 0.0001) || 0.0001;
+              const loopDurationSec = Math.max(0.5, (60 / (tempoRef.current || 96)) * 8);
+              const stepDur = loopDurationSec / n;
+              let idx = 0;
+              const loop = new Tone.Loop((time) => {
+                try {
+                  const p = pts[idx % n];
+                  const prev = pts[(idx - 1 + n) % n];
+                  const yNorm = (p.r / maxR) * 2 - 1;
+                  const midi = valueToMidi(yNorm, emotion.audio.scale, emotion.root);
+                  const curvature = Math.abs(p.r - prev.r) / maxR;
+                  const velocity = Math.max(0.22, Math.min(0.95, 0.42 + curvature * 4));
+                  chain.synth.triggerAttackRelease(midiToFreq(midi), stepDur * 0.92, time, velocity);
+                } catch (noteErr) {
+                  // Skip a bad note rather than break the transport.
+                }
+                idx++;
+              }, stepDur).start(0);
+              chain.sequence = loop;
+            } catch (loopErr) {
+              // If the loop can't be built (e.g. degenerate geometry), just skip audio for this layer.
+            }
+            return;
+          }
+
+          if (!layer.audioPts.length) return;
           const indices = layer.audioPts.map((_, i) => i);
           const seq = new Tone.Sequence(
             (time, i) => {
@@ -1725,7 +1925,7 @@
       useEffect(() => {
         if (!playing) return;
         startAllSequences();
-      }, [layers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}:${l.emotionKey}`).join('|'), playing, startAllSequences]);
+      }, [layers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}:${l.emotionKey}`).join('|'), playing, tempo, startAllSequences]);
 
       const togglePlay = useCallback(async () => {
         await Tone.start();
@@ -1918,9 +2118,9 @@
               <div className='eo-fade-in' style={{
                 position: 'absolute', top: 80, left: 16, right: 16, zIndex: 15,
                 background: 'rgba(12,12,18,0.85)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 14, padding: 14,
+                borderRadius: 14, padding: 14, maxHeight: 'calc(100vh - 170px)', display: 'flex', flexDirection: 'column',
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button onClick={() => setPanelMode('templates')} style={{
                       background: panelMode === 'templates' ? 'rgba(255,255,255,0.12)' : 'transparent',
@@ -1935,7 +2135,7 @@
                 </div>
 
                 {panelMode === 'templates' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                  <div className='eo-scroll' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, overflowY: 'auto', paddingRight: 4 }}>
                     {EQUATIONS.map((item) => (
                       <div key={item.label} onClick={() => {
                         if (!activeLayer.locked) {
@@ -1955,7 +2155,7 @@
                 )}
 
                 {panelMode === 'gallery' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                  <div className='eo-scroll' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, overflowY: 'auto', paddingRight: 4 }}>
                     {EMOTION_KEYS.map((key) => {
                       const emotion = EMOTIONS[key];
                       return (
@@ -1984,33 +2184,51 @@
               </div>
             )}
 
-            <div style={{
-              position: 'absolute', top: 80, right: 16, bottom: 90, display: 'flex', flexDirection: 'column',
-              gap: 7, overflowY: 'auto', paddingRight: 2, width: 118,
-            }}>
-              {EMOTION_KEYS.map((key) => {
-                const e = EMOTIONS[key];
-                const selected = key === activeLayer.emotionKey;
-                return (
-                  <div key={key}
-                    onClick={() => !activeLayer.locked && editLayer(activeLayer.id, { emotionKey: key })}
-                    className='eo-btn'
-                    style={{
-                      cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 10, padding: '8px 10px',
-                      background: selected ? 'rgba(255,255,255,0.1)' : 'rgba(12,12,18,0.55)', backdropFilter: 'blur(10px)',
-                      border: selected ? `1px solid ${e.colors.glow}` : '1px solid rgba(255,255,255,0.08)',
-                      display: 'flex', alignItems: 'center', gap: 8, opacity: activeLayer.locked ? 0.5 : 1,
-                    }}
-                  >
-                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.colors.glow, flexShrink: 0, boxShadow: selected ? `0 0 8px ${e.colors.glow}` : 'none' }} />
-                    <span style={{ fontSize: 12, color: '#e6e3ee', fontWeight: 500 }}>{e.label}</span>
-                  </div>
-                );
-              })}
-            </div>
+            {showMoodPanel ? (
+              <div className='eo-fade-in' style={{
+                position: 'absolute', top: 80, right: 16, bottom: 90, display: 'flex', flexDirection: 'column',
+                gap: 7, overflowY: 'auto', paddingRight: 2, width: 118,
+              }}>
+                {EMOTION_KEYS.map((key) => {
+                  const e = EMOTIONS[key];
+                  const selected = key === activeLayer.emotionKey;
+                  return (
+                    <div key={key}
+                      onClick={() => !activeLayer.locked && editLayer(activeLayer.id, { emotionKey: key })}
+                      className='eo-btn'
+                      style={{
+                        cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 10, padding: '8px 10px',
+                        background: selected ? 'rgba(255,255,255,0.1)' : 'rgba(12,12,18,0.55)', backdropFilter: 'blur(10px)',
+                        border: selected ? `1px solid ${e.colors.glow}` : '1px solid rgba(255,255,255,0.08)',
+                        display: 'flex', alignItems: 'center', gap: 8, opacity: activeLayer.locked ? 0.5 : 1,
+                      }}
+                    >
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.colors.glow, flexShrink: 0, boxShadow: selected ? `0 0 8px ${e.colors.glow}` : 'none' }} />
+                      <span style={{ fontSize: 12, color: '#e6e3ee', fontWeight: 500 }}>{e.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <button onClick={() => setShowMoodPanel(true)} className='eo-btn' aria-label='Show mood panel' style={{
+                position: 'absolute', top: 80, right: 16, width: 36, height: 36, borderRadius: 12,
+                background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#cfcbd8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span>🎨</span>
+              </button>
+            )}
 
-            <div style={{ position: 'absolute', left: 16, top: 96, bottom: 90, width: 226, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 6 }}>
-              {showLayers && (
+            {showControlPanel ? (
+              <div className='eo-fade-in' style={{ position: 'absolute', left: 16, top: 96, bottom: 90, width: 226, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button onClick={() => setShowControlPanel(false)} className='eo-btn' aria-label='Hide control panel' style={{
+                  alignSelf: 'flex-start', background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8a8698', cursor: 'pointer', flexShrink: 0,
+                }}>
+                  <span style={{ fontSize: 12 }}>◂</span>
+                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 6, flex: 1, minHeight: 0 }}>
+                  {showLayers && (
                 <div className='eo-fade-in' style={{
                   background: 'rgba(12,12,18,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 14, padding: 10,
@@ -2114,7 +2332,17 @@
                   )}
                 </div>
               )}
-            </div>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowControlPanel(true)} className='eo-btn' aria-label='Show control panel' style={{
+                position: 'absolute', left: 16, top: 96, width: 36, height: 36, borderRadius: 12,
+                background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#cfcbd8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span>▸</span>
+              </button>
+            )}
 
             {bookmarks.length > 0 && (
               <div className='eo-fade-in' style={{
