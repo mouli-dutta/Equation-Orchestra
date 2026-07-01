@@ -236,14 +236,11 @@
       { label: 'Harmonic Series', eq: 'sin(x)+0.5*sin(2*x)+0.25*sin(3*x)' },
       { label: 'Fourier Wave', eq: 'sin(x)+sin(3*x)/3+sin(5*x)/5+sin(7*x)/7' },
       { label: 'Bell Curve', eq: 'exp(-0.05*x^2)*sin(B*x)' },
-      { label: 'Chime', eq: 'exp(-0.02*x^2)*sin(B*x)*cos(C*x)' },
-      { label: 'Gong', eq: 'exp(-0.01*x^2)*sin(B*x)/(1+0.01*x^2)' },
       { label: 'Hyperbolic', eq: 'tanh(sin(A*x))*cos(B*x)' },
       { label: 'Exponential Pulse', eq: 'exp(-0.01*x)*sin(A*x)' },
       { label: 'Oscillator', eq: 'sin(A*x)/(1+0.01*x^2)' },
       { label: 'Galaxy', eq: 'sin(0.5*x)+0.5*sin(2*x)+0.25*cos(5*x)' },
       { label: 'Nebula', eq: 'exp(-0.005*x^2)*(sin(2*x)+0.5*cos(6*x))' },
-      { label: 'Orbit', eq: 'sin(A*x)*sin(B*x)+0.5*cos(C*x)' },
       { label: "Lemniscate", eq: "(x*x+y*y)^2=2*(x*x-y*y)"},
       { label: "Astroid", eq: "pow(abs(x),2/3)+pow(abs(y),2/3)=1"},
       { label: "Eight Petals", eq: "sqrt(x*x+y*y)=cos(8*atan2(y,x))" },
@@ -252,10 +249,14 @@
       { label: "Clover", eq: "sqrt(x*x+y*y)=sin(4*atan2(y,x))" },
       { label: "Galaxy", eq: "sqrt(x*x+y*y)=1+0.1*sin(30*atan2(y,x)+5*sqrt(x*x+y*y))" },
       { label: "Ripple", eq: "sin(5*sqrt(x*x+y*y))=0" },
-      { label: "Mandala", eq: "sqrt(x*x+y*y)=1+0.1*sin(12*atan2(y,x))*cos(6*sqrt(x*x+y*y))" },
+      { label: "Spiral Fractal", eq: "sin(8*log(sqrt(x*x+y*y))-6*atan2(y,x))=0" },
+      { label: "Recursive Web", eq: "sin(12*sqrt(x*x+y*y))*cos(8*atan2(y,x))=0" },
+      { label: "Crystal Web", eq: "cos(20*sqrt(x*x+y*y))*sin(12*atan2(y,x))=0" },
+      { label: "Fern Wave", eq: "sin(10*x)*cos(10*y)=sin(5*sqrt(x*x+y*y))" },
+      { label: "Chaos Rings", eq: "sin(30*sqrt(x*x+y*y))*sin(7*atan2(y,x))=0" },
     ];
 
-    
+
     const GALLERY = [
       { name: 'Galaxy', eq: 'sin(A*x)/(1+0.04*x^2)', params: { A: 4 }, emotion: 'cosmic' },
       { name: 'Heartbeat', eq: 'A*exp(-0.3*sin(B*x)^2)*sin(C*x)', params: { A: 2, B: 1, C: 8 }, emotion: 'epic' },
