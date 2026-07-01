@@ -143,6 +143,8 @@
       const AUDIO_STEPS = 32;
       const MAX_LAYERS = 4;
       const CURVE_SAMPLE_COUNT = 420;
+      const MIN_CAMERA_SCALE = 1e-100;
+      const MAX_CAMERA_SCALE = 1e100;
 
       function lerp(a, b, t) {
         return a + (b - a) * t;
@@ -223,11 +225,169 @@
         return niceFraction * Math.pow(10, exponent);
       }
 
+      function getGridSteps(unitsPerPixel) {
+        const major = getNiceTick(unitsPerPixel * 110);
+        return { major, minor: major / 5 };
+      }
+
       function formatTick(value) {
-        if (Math.abs(value) < 0.0001) return '0';
-        if (Math.abs(value) >= 1000) return value.toFixed(0);
-        if (Math.abs(value) >= 1) return value.toFixed(1).replace(/\.0$/, '');
-        return value.toFixed(2);
+        if (Math.abs(value) < 1e-12) return '0';
+        const abs = Math.abs(value);
+        if (abs >= 1e6 || abs < 1e-4) return value.toExponential(2).replace('+', '');
+        if (abs >= 1000) return value.toFixed(0);
+        if (abs >= 10) return value.toFixed(1).replace(/\.0$/, '');
+        if (abs >= 1) return value.toFixed(2).replace(/\.?0+$/, '');
+        const decimals = Math.min(8, Math.max(2, Math.ceil(-Math.log10(abs)) + 2));
+        return value.toFixed(decimals).replace(/\.?0+$/, '');
+      }
+
+      function clampCameraScale(scale) {
+        return Math.max(MIN_CAMERA_SCALE, Math.min(MAX_CAMERA_SCALE, scale));
+      }
+
+      function getInitialCamera(w, h) {
+        return { x: 0, y: 0, scale: Math.max(24 / Math.max(1, w), 6 / Math.max(1, h)) };
+      }
+
+      function getViewport(camera, w, h) {
+        const halfW = (w * camera.scale) / 2;
+        const halfH = (h * camera.scale) / 2;
+        return {
+          xMin: camera.x - halfW,
+          xMax: camera.x + halfW,
+          yMin: camera.y - halfH,
+          yMax: camera.y + halfH,
+          width: halfW * 2,
+          height: halfH * 2,
+        };
+      }
+
+      function worldToScreen(x, y, camera, w, h) {
+        return { x: (x - camera.x) / camera.scale + w / 2, y: h / 2 - (y - camera.y) / camera.scale };
+      }
+
+      function screenToWorld(x, y, camera, w, h) {
+        return { x: camera.x + (x - w / 2) * camera.scale, y: camera.y + (h / 2 - y) * camera.scale };
+      }
+
+      function evalY(code, params, x) {
+        try {
+          const y = code.evaluate({ x, ...params });
+          return typeof y === 'number' && isFinite(y) ? y : null;
+        } catch {
+          return null;
+        }
+      }
+
+      function hasCurveBreak(a, b, viewport) {
+        if (a.y === null || b.y === null) return true;
+        const dy = Math.abs(b.y - a.y);
+        const screenJump = dy / viewport.height;
+        if (screenJump > 1.4) return true;
+        return Math.sign(a.y) !== Math.sign(b.y) && dy > viewport.height * 0.75;
+      }
+
+      function adaptiveSampleCurve(code, params, viewport, w, h, progress = 1) {
+        if (!code || viewport.width <= 0 || !isFinite(viewport.width)) return [];
+        const visibleXMax = lerp(viewport.xMin, viewport.xMax, Math.max(0, Math.min(1, progress)));
+        const span = visibleXMax - viewport.xMin;
+        if (span <= 0) return [];
+
+        const baseSegments = Math.max(24, Math.min(900, Math.ceil(w / 28)));
+        const flatTolerancePx = 0.62;
+        const maxDepth = Math.max(5, Math.min(12, Math.round(9 - Math.log10(Math.max(viewport.width, 1e-9)))));
+        const points = [];
+
+        const toScreenPoint = (x, y) => worldToScreen(x, y, { x: (viewport.xMin + viewport.xMax) / 2, y: (viewport.yMin + viewport.yMax) / 2, scale: viewport.width / w }, w, h);
+        const pushPoint = (p) => {
+          if (!points.length || points[points.length - 1].x !== p.x || points[points.length - 1].y !== p.y) points.push(p);
+        };
+        const subdivide = (a, b, depth) => {
+          if (hasCurveBreak(a, b, viewport)) {
+            pushPoint(a);
+            pushPoint({ x: b.x, y: null });
+            return;
+          }
+          const midX = (a.x + b.x) / 2;
+          const midY = evalY(code, params, midX);
+          const mid = { x: midX, y: midY };
+          if (midY === null) {
+            pushPoint(a);
+            pushPoint({ x: midX, y: null });
+            return;
+          }
+
+          const sa = toScreenPoint(a.x, a.y);
+          const sb = toScreenPoint(b.x, b.y);
+          const sm = toScreenPoint(mid.x, mid.y);
+          const interpX = (sa.x + sb.x) / 2;
+          const interpY = (sa.y + sb.y) / 2;
+          const curvature = Math.hypot(sm.x - interpX, sm.y - interpY);
+          const longSegment = Math.hypot(sb.x - sa.x, sb.y - sa.y) > 44;
+          const needsMore = depth < maxDepth && (curvature > flatTolerancePx || longSegment);
+
+          if (needsMore) {
+            subdivide(a, mid, depth + 1);
+            subdivide(mid, b, depth + 1);
+          } else {
+            pushPoint(a);
+            pushPoint(b);
+          }
+        };
+
+        let prev = { x: viewport.xMin, y: evalY(code, params, viewport.xMin) };
+        for (let i = 1; i <= baseSegments; i++) {
+          const x = viewport.xMin + (i / baseSegments) * span;
+          const next = { x, y: evalY(code, params, x) };
+          subdivide(prev, next, 0);
+          prev = next;
+          if (points.length > 6000) break;
+        }
+        return points;
+      }
+
+      function drawBrokenPath(ctx, points, project) {
+        let drawing = false;
+        ctx.beginPath();
+        for (const p of points) {
+          if (p.y === null || !isFinite(p.x) || !isFinite(p.y)) {
+            drawing = false;
+            continue;
+          }
+          const s = project(p.x, p.y);
+          if (!drawing) {
+            ctx.moveTo(s.x, s.y);
+            drawing = true;
+          } else {
+            ctx.lineTo(s.x, s.y);
+          }
+        }
+      }
+
+      function roundedRectPath(ctx, x, y, w, h, r) {
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, w, h, r);
+          return;
+        }
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+      }
+
+      function finiteDerivative(code, params, x, unitsPerPixel) {
+        const dx = Math.max(Math.abs(x) * 1e-7, unitsPerPixel * 3, 1e-8);
+        const y1 = evalY(code, params, x - dx);
+        const y2 = evalY(code, params, x + dx);
+        if (y1 === null || y2 === null) return null;
+        const slope = (y2 - y1) / (2 * dx);
+        return isFinite(slope) ? slope : null;
       }
 
       function computeMarkers(pts) {
@@ -370,6 +530,8 @@
         const [showLayers, setShowLayers] = useState(true);
         const [equationAnimating, setEquationAnimating] = useState(false);
         const [fullscreen, setFullscreen] = useState(false);
+        const [showNavigator, setShowNavigator] = useState(true);
+        const [bookmarks, setBookmarks] = useState([]);
 
         const containerRef = useRef(null);
         const canvasRef = useRef(null);
@@ -378,7 +540,23 @@
         const starsRef = useRef([]);
         const levelsRef = useRef({});
         const audioChainsRef = useRef({});
-        const cameraZoomRef = useRef(1);
+        const cameraRef = useRef({ current: { x: 0, y: 0, scale: 0.03 }, target: { x: 0, y: 0, scale: 0.03 } });
+        const cameraHistoryRef = useRef({ undo: [], redo: [] });
+        const interactionRef = useRef({
+          pointers: new Map(),
+          dragging: false,
+          lastX: 0,
+          lastY: 0,
+          velocityX: 0,
+          velocityY: 0,
+          lastMoveAt: 0,
+          pinchStartDistance: 0,
+          pinchStartScale: 0,
+          pinchAnchor: null,
+          lastTapAt: 0,
+          cursor: null,
+          interactingUntil: 0,
+        });
         const initialDrawRef = useRef({ start: performance.now(), active: true, duration: 2200 });
 
         const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
@@ -474,6 +652,10 @@
             canvas.style.height = h + 'px';
             const ctx = canvas.getContext('2d');
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            if (!cameraRef.current.initialized) {
+              const initial = getInitialCamera(w, h);
+              cameraRef.current = { current: { ...initial }, target: { ...initial }, initialized: true };
+            }
 
             starsRef.current = Array.from({ length: 90 }, () => ({
               x: Math.random() * w,
@@ -521,6 +703,213 @@
           });
         }, [layerEmotionSignature, rebuildParticles, layers]);
 
+        const pushCameraHistory = useCallback(() => {
+          const cam = cameraRef.current.target;
+          const undo = cameraHistoryRef.current.undo;
+          const last = undo[undo.length - 1];
+          if (last && Math.hypot(last.x - cam.x, last.y - cam.y) < cam.scale * 2 && Math.abs(Math.log(last.scale / cam.scale)) < 0.02) return;
+          undo.push({ ...cam });
+          if (undo.length > 50) undo.shift();
+          cameraHistoryRef.current.redo = [];
+        }, []);
+
+        const setCameraTarget = useCallback((next, record = false) => {
+          if (record) pushCameraHistory();
+          const target = cameraRef.current.target;
+          cameraRef.current.target = {
+            x: Number.isFinite(next.x) ? next.x : target.x,
+            y: Number.isFinite(next.y) ? next.y : target.y,
+            scale: clampCameraScale(Number.isFinite(next.scale) ? next.scale : target.scale),
+          };
+        }, [pushCameraHistory]);
+
+        const resetCamera = useCallback((record = true) => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          setCameraTarget(getInitialCamera(canvas.width / dpr, canvas.height / dpr), record);
+        }, [setCameraTarget]);
+
+        const zoomAt = useCallback((screenX, screenY, factor, record = false) => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const w = canvas.width / dpr;
+          const h = canvas.height / dpr;
+          const target = cameraRef.current.target;
+          const before = screenToWorld(screenX, screenY, target, w, h);
+          const nextScale = clampCameraScale(target.scale * factor);
+          setCameraTarget({
+            scale: nextScale,
+            x: before.x - (screenX - w / 2) * nextScale,
+            y: before.y - (h / 2 - screenY) * nextScale,
+          }, record);
+          interactionRef.current.interactingUntil = performance.now() + 900;
+        }, [setCameraTarget]);
+
+        const panByPixels = useCallback((dx, dy, record = false) => {
+          const target = cameraRef.current.target;
+          setCameraTarget({ ...target, x: target.x - dx * target.scale, y: target.y + dy * target.scale }, record);
+          interactionRef.current.interactingUntil = performance.now() + 700;
+        }, [setCameraTarget]);
+
+        const undoCamera = useCallback(() => {
+          const history = cameraHistoryRef.current;
+          const prev = history.undo.pop();
+          if (!prev) return;
+          history.redo.push({ ...cameraRef.current.target });
+          setCameraTarget(prev, false);
+        }, [setCameraTarget]);
+
+        const redoCamera = useCallback(() => {
+          const history = cameraHistoryRef.current;
+          const next = history.redo.pop();
+          if (!next) return;
+          history.undo.push({ ...cameraRef.current.target });
+          setCameraTarget(next, false);
+        }, [setCameraTarget]);
+
+        const shareViewport = useCallback(() => {
+          const cam = cameraRef.current.target;
+          const url = new URL(window.location.href);
+          url.searchParams.set('vx', cam.x.toPrecision(8));
+          url.searchParams.set('vy', cam.y.toPrecision(8));
+          url.searchParams.set('vs', cam.scale.toPrecision(8));
+          window.history.replaceState(null, '', url.toString());
+          navigator.clipboard?.writeText(url.toString()).catch(() => {});
+        }, []);
+
+        useEffect(() => {
+          const params = new URLSearchParams(window.location.search);
+          const x = Number(params.get('vx'));
+          const y = Number(params.get('vy'));
+          const scale = Number(params.get('vs'));
+          if ([x, y, scale].every(Number.isFinite) && scale > 0) {
+            const next = { x, y, scale: clampCameraScale(scale) };
+            cameraRef.current.current = { ...next };
+            cameraRef.current.target = { ...next };
+            cameraRef.current.initialized = true;
+          }
+        }, []);
+
+        useEffect(() => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          canvas.style.touchAction = 'none';
+
+          const pointFor = (ev) => {
+            const rect = canvas.getBoundingClientRect();
+            return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+          };
+          const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+          const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+          const onWheel = (ev) => {
+            ev.preventDefault();
+            const p = pointFor(ev);
+            zoomAt(p.x, p.y, Math.exp(ev.deltaY * 0.0015), true);
+          };
+          const onPointerDown = (ev) => {
+            canvas.setPointerCapture?.(ev.pointerId);
+            const p = pointFor(ev);
+            const state = interactionRef.current;
+            state.pointers.set(ev.pointerId, p);
+            state.cursor = p;
+            state.interactingUntil = performance.now() + 900;
+            if (state.pointers.size === 1) {
+              const now = performance.now();
+              if (now - state.lastTapAt < 320) resetCamera(true);
+              state.lastTapAt = now;
+              state.dragging = true;
+              state.lastX = p.x;
+              state.lastY = p.y;
+              state.velocityX = 0;
+              state.velocityY = 0;
+              state.lastMoveAt = now;
+              pushCameraHistory();
+            } else if (state.pointers.size === 2) {
+              const pts = [...state.pointers.values()];
+              state.pinchStartDistance = Math.max(1, dist(pts[0], pts[1]));
+              state.pinchStartScale = cameraRef.current.target.scale;
+              state.pinchAnchor = mid(pts[0], pts[1]);
+              pushCameraHistory();
+            }
+          };
+          const onPointerMove = (ev) => {
+            const p = pointFor(ev);
+            const state = interactionRef.current;
+            state.cursor = p;
+            if (!state.pointers.has(ev.pointerId)) return;
+            state.pointers.set(ev.pointerId, p);
+            state.interactingUntil = performance.now() + 900;
+            if (state.pointers.size === 2) {
+              const pts = [...state.pointers.values()];
+              const m = mid(pts[0], pts[1]);
+              const nextDistance = Math.max(1, dist(pts[0], pts[1]));
+              const factor = (state.pinchStartDistance / nextDistance) * (state.pinchStartScale / cameraRef.current.target.scale);
+              const anchor = state.pinchAnchor || m;
+              zoomAt(anchor.x, anchor.y, factor, false);
+              panByPixels(m.x - anchor.x, m.y - anchor.y, false);
+              state.pinchAnchor = m;
+              return;
+            }
+            if (state.dragging) {
+              const now = performance.now();
+              const dt = Math.max(16, now - state.lastMoveAt);
+              const dx = p.x - state.lastX;
+              const dy = p.y - state.lastY;
+              panByPixels(dx, dy, false);
+              state.velocityX = dx / dt;
+              state.velocityY = dy / dt;
+              state.lastX = p.x;
+              state.lastY = p.y;
+              state.lastMoveAt = now;
+            }
+          };
+          const endPointer = (ev) => {
+            const state = interactionRef.current;
+            state.pointers.delete(ev.pointerId);
+            state.dragging = state.pointers.size > 0;
+            if (state.pointers.size < 2) state.pinchAnchor = null;
+          };
+          const onPointerLeave = () => {
+            interactionRef.current.cursor = null;
+          };
+          const onKeyDown = (ev) => {
+            const tag = document.activeElement?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') return;
+            const cx = canvas.clientWidth / 2;
+            const cy = canvas.clientHeight / 2;
+            const step = ev.shiftKey ? 96 : 44;
+            if (ev.key === '+' || ev.key === '=') { ev.preventDefault(); zoomAt(cx, cy, 0.78, true); }
+            else if (ev.key === '-' || ev.key === '_') { ev.preventDefault(); zoomAt(cx, cy, 1.28, true); }
+            else if (ev.key === '0') { ev.preventDefault(); resetCamera(true); }
+            else if (ev.key === 'ArrowLeft') { ev.preventDefault(); panByPixels(step, 0, true); }
+            else if (ev.key === 'ArrowRight') { ev.preventDefault(); panByPixels(-step, 0, true); }
+            else if (ev.key === 'ArrowUp') { ev.preventDefault(); panByPixels(0, step, true); }
+            else if (ev.key === 'ArrowDown') { ev.preventDefault(); panByPixels(0, -step, true); }
+            else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? redoCamera() : undoCamera(); }
+            else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redoCamera(); }
+          };
+
+          canvas.addEventListener('wheel', onWheel, { passive: false });
+          canvas.addEventListener('pointerdown', onPointerDown);
+          canvas.addEventListener('pointermove', onPointerMove);
+          canvas.addEventListener('pointerup', endPointer);
+          canvas.addEventListener('pointercancel', endPointer);
+          canvas.addEventListener('pointerleave', onPointerLeave);
+          window.addEventListener('keydown', onKeyDown);
+          return () => {
+            canvas.removeEventListener('wheel', onWheel);
+            canvas.removeEventListener('pointerdown', onPointerDown);
+            canvas.removeEventListener('pointermove', onPointerMove);
+            canvas.removeEventListener('pointerup', endPointer);
+            canvas.removeEventListener('pointercancel', endPointer);
+            canvas.removeEventListener('pointerleave', onPointerLeave);
+            window.removeEventListener('keydown', onKeyDown);
+          };
+        }, [panByPixels, pushCameraHistory, redoCamera, resetCamera, undoCamera, zoomAt]);
+
         useEffect(() => {
           const canvas = canvasRef.current;
           if (!canvas) return;
@@ -530,88 +919,97 @@
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
             const w = canvas.width / dpr;
             const h = canvas.height / dpr;
-            const t = now / 1000;
 
-            cameraZoomRef.current *= 1.000021;
-            const zoom = cameraZoomRef.current;
-            const worldXMin = X_MIN * zoom;
-            const worldXMax = X_MAX * zoom;
-            const worldYExtent = 1.5 * zoom;
-            const worldYMin = -worldYExtent;
-            const worldYMax = worldYExtent;
+            if (!cameraRef.current.initialized && w && h) {
+              const initial = getInitialCamera(w, h);
+              cameraRef.current = { ...cameraRef.current, current: { ...initial }, target: { ...initial }, initialized: true };
+            }
 
-            const marginX = w * 0.08;
-            const marginY = h * 0.16;
-            const plotW = w - marginX * 2;
-            const plotH = h - marginY * 2;
-            const xScale = plotW / (worldXMax - worldXMin);
-            const yScale = plotH / (worldYMax - worldYMin);
+            const state = interactionRef.current;
+            if (!state.dragging && state.pointers.size === 0 && (Math.abs(state.velocityX) > 0.002 || Math.abs(state.velocityY) > 0.002)) {
+              panByPixels(state.velocityX * 16, state.velocityY * 16, false);
+              state.velocityX *= 0.92;
+              state.velocityY *= 0.92;
+            }
+
+            const current = cameraRef.current.current;
+            const target = cameraRef.current.target;
+            current.x += (target.x - current.x) * 0.15;
+            current.y += (target.y - current.y) * 0.15;
+            current.scale += (target.scale - current.scale) * 0.15;
+            current.scale = clampCameraScale(current.scale);
+            const viewport = getViewport(current, w, h);
+            const project = (x, y) => worldToScreen(x, y, current, w, h);
 
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#0B0B0D';
             ctx.fillRect(0, 0, w, h);
             ctx.imageSmoothingEnabled = true;
 
-            const majorTickX = getNiceTick((worldXMax - worldXMin) / 8);
-            const majorTickY = getNiceTick((worldYMax - worldYMin) / 8);
-            const minorTickX = majorTickX / 4;
-            const minorTickY = majorTickY / 4;
+            const gridX = getGridSteps(current.scale);
+            const gridY = getGridSteps(current.scale);
+            const gridFade = Math.max(0.45, Math.min(1, 100 / Math.max(60, gridX.major / current.scale)));
 
             ctx.lineWidth = 1;
-            for (let x = Math.floor(worldXMin / minorTickX) * minorTickX; x <= worldXMax + minorTickX; x += minorTickX) {
-              const sx = marginX + (x - worldXMin) * xScale;
+            for (let x = Math.floor(viewport.xMin / gridX.minor) * gridX.minor; x <= viewport.xMax + gridX.minor; x += gridX.minor) {
+              const sx = project(x, 0).x;
               if (sx < -2 || sx > w + 2) continue;
-              ctx.strokeStyle = x % majorTickX === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)';
+              const isMajor = Math.abs(x / gridX.major - Math.round(x / gridX.major)) < 1e-6;
+              ctx.strokeStyle = isMajor ? `rgba(255,255,255,${0.20 * gridFade})` : `rgba(255,255,255,${0.08 * gridFade})`;
               ctx.beginPath();
-              ctx.moveTo(sx, marginY);
-              ctx.lineTo(sx, h - marginY);
+              ctx.moveTo(sx, 0);
+              ctx.lineTo(sx, h);
               ctx.stroke();
             }
-            for (let y = Math.floor(worldYMin / minorTickY) * minorTickY; y <= worldYMax + minorTickY; y += minorTickY) {
-              const sy = marginY + (worldYMax - y) * yScale;
+            for (let y = Math.floor(viewport.yMin / gridY.minor) * gridY.minor; y <= viewport.yMax + gridY.minor; y += gridY.minor) {
+              const sy = project(0, y).y;
               if (sy < -2 || sy > h + 2) continue;
-              ctx.strokeStyle = y % majorTickY === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)';
+              const isMajor = Math.abs(y / gridY.major - Math.round(y / gridY.major)) < 1e-6;
+              ctx.strokeStyle = isMajor ? `rgba(255,255,255,${0.20 * gridFade})` : `rgba(255,255,255,${0.08 * gridFade})`;
               ctx.beginPath();
-              ctx.moveTo(marginX, sy);
-              ctx.lineTo(w - marginX, sy);
+              ctx.moveTo(0, sy);
+              ctx.lineTo(w, sy);
               ctx.stroke();
             }
 
             ctx.strokeStyle = 'rgba(255,255,255,0.28)';
             ctx.lineWidth = 1.3;
             ctx.beginPath();
-            if (worldYMin < 0 && worldYMax > 0) {
-              const sy = marginY + (worldYMax - 0) * yScale;
-              ctx.moveTo(marginX, sy);
-              ctx.lineTo(w - marginX, sy);
+            if (viewport.yMin < 0 && viewport.yMax > 0) {
+              const sy = project(0, 0).y;
+              ctx.moveTo(0, sy);
+              ctx.lineTo(w, sy);
             }
-            if (worldXMin < 0 && worldXMax > 0) {
-              const sx = marginX + (0 - worldXMin) * xScale;
-              ctx.moveTo(sx, marginY);
-              ctx.lineTo(sx, h - marginY);
+            if (viewport.xMin < 0 && viewport.xMax > 0) {
+              const sx = project(0, 0).x;
+              ctx.moveTo(sx, 0);
+              ctx.lineTo(sx, h);
             }
             ctx.stroke();
 
-            ctx.fillStyle = 'rgba(255,255,255,0.72)';
-            ctx.font = '11px JetBrains Mono';
+            ctx.fillStyle = 'rgba(255,255,255,0.74)';
+            ctx.font = '11px JetBrains Mono, monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            for (let x = Math.floor(worldXMin / majorTickX) * majorTickX; x <= worldXMax + majorTickX; x += majorTickX) {
-              if (Math.abs(x) < 1e-6) continue;
-              const sx = marginX + (x - worldXMin) * xScale;
-              if (sx < marginX || sx > w - marginX) continue;
-              const sy = marginY + (worldYMax - 0) * yScale;
-              ctx.fillText(formatTick(x), sx, sy + 8);
+            let lastLabelX = -Infinity;
+            const xAxisY = Math.max(8, Math.min(h - 22, project(0, 0).y + 8));
+            for (let x = Math.floor(viewport.xMin / gridX.major) * gridX.major; x <= viewport.xMax + gridX.major; x += gridX.major) {
+              const sx = project(x, 0).x;
+              const label = formatTick(x);
+              const labelW = ctx.measureText(label).width + 18;
+              if (sx < 8 || sx > w - 8 || sx - lastLabelX < labelW) continue;
+              ctx.fillText(label, sx, xAxisY);
+              lastLabelX = sx;
             }
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
-            for (let y = Math.floor(worldYMin / majorTickY) * majorTickY; y <= worldYMax + majorTickY; y += majorTickY) {
-              if (Math.abs(y) < 1e-6) continue;
-              const sy = marginY + (worldYMax - y) * yScale;
-              if (sy < marginY || sy > h - marginY) continue;
-              const sx = marginX + (0 - worldXMin) * xScale;
-              if (sx < marginX || sx > w - marginX) continue;
-              ctx.fillText(formatTick(y), sx - 10, sy);
+            let lastLabelY = -Infinity;
+            const yAxisX = Math.max(56, Math.min(w - 10, project(0, 0).x - 10));
+            for (let y = Math.floor(viewport.yMin / gridY.major) * gridY.major; y <= viewport.yMax + gridY.major; y += gridY.major) {
+              const sy = project(0, y).y;
+              if (sy < 12 || sy > h - 12 || Math.abs(sy - lastLabelY) < 18) continue;
+              ctx.fillText(formatTick(y), yAxisX, sy);
+              lastLabelY = sy;
             }
 
             const initialDraw = initialDrawRef.current.active
@@ -622,73 +1020,49 @@
             }
 
             ctx.save();
-            ctx.translate(0, 0);
             for (const layer of derivedLayers) {
               if (!layer.visible || !layer.valid) continue;
               const emotion = EMOTIONS[layer.emotionKey];
               const graphColor = emotion.colors.graph[0];
               const glowColor = emotion.colors.glow;
-              const pts = layer.visualPts;
-              const display = pts
-                .filter((p) => p.y !== null)
-                .map((p) => ({
-                  x: marginX + (p.x - worldXMin) * xScale,
-                  y: marginY + (worldYMax - p.y) * yScale,
-                }));
-              if (display.length < 2) continue;
-
-              const visibleCount = initialDrawRef.current.active
-                ? Math.max(2, Math.min(display.length, Math.ceil(display.length * initialDraw)))
-                : display.length;
-              const visiblePath = display.slice(0, visibleCount);
-              if (visiblePath.length < 2) continue;
+              const pts = adaptiveSampleCurve(layer.code, layer.params, viewport, w, h, initialDraw);
+              const finitePts = pts.filter((p) => p.y !== null);
+              if (finitePts.length < 2) continue;
 
               ctx.globalCompositeOperation = layer.blend === 'lighten' ? 'lighter' : 'source-over';
               ctx.lineJoin = 'round';
               ctx.lineCap = 'round';
 
               ctx.strokeStyle = glowColor;
-              ctx.lineWidth = 10;
-              ctx.globalAlpha = 0.15;
+              ctx.lineWidth = 9;
+              ctx.globalAlpha = 0.12 * layer.opacity;
               ctx.shadowColor = glowColor;
-              ctx.shadowBlur = 22;
-              smoothCurve(ctx, visiblePath);
+              ctx.shadowBlur = 18;
+              drawBrokenPath(ctx, pts, project);
               ctx.stroke();
 
               ctx.strokeStyle = graphColor;
-              ctx.lineWidth = 3.4;
-              ctx.globalAlpha = 0.55;
+              ctx.lineWidth = 2.8;
+              ctx.globalAlpha = 0.78 * layer.opacity;
               ctx.shadowColor = glowColor;
-              ctx.shadowBlur = 12;
-              smoothCurve(ctx, visiblePath);
+              ctx.shadowBlur = 9;
+              drawBrokenPath(ctx, pts, project);
               ctx.stroke();
               ctx.shadowBlur = 0;
 
               if (initialDrawRef.current.active) {
                 const fadeStart = 0.9;
                 const penAlpha = initialDraw >= fadeStart ? Math.max(0, 1 - (initialDraw - fadeStart) / (1 - fadeStart)) : 1;
-                const headPoint = visiblePath[visiblePath.length - 1];
-                const trailLength = Math.min(12, visiblePath.length - 1);
-                const trailStart = Math.max(0, visiblePath.length - trailLength - 1);
-
-                ctx.save();
-                for (let i = trailStart; i < visiblePath.length; i++) {
-                  const pt = visiblePath[i];
-                  const trailT = (i - trailStart) / Math.max(1, visiblePath.length - trailStart - 1);
-                  ctx.fillStyle = `rgba(132, 213, 255, ${0.12 * (1 - trailT) * penAlpha})`;
-                  ctx.beginPath();
-                  ctx.arc(pt.x, pt.y, 7 * (1 - trailT) + 1.5, 0, Math.PI * 2);
-                  ctx.fill();
-                }
-                ctx.restore();
-
+                const headPoint = finitePts[finitePts.length - 1];
                 if (headPoint) {
+                  const head = project(headPoint.x, headPoint.y);
                   ctx.save();
                   ctx.shadowColor = graphColor;
                   ctx.shadowBlur = 16 * penAlpha;
+                  ctx.globalAlpha = penAlpha;
                   ctx.fillStyle = `rgba(255,255,255,${0.95 * penAlpha})`;
                   ctx.beginPath();
-                  ctx.arc(headPoint.x, headPoint.y, 8 * penAlpha, 0, Math.PI * 2);
+                  ctx.arc(head.x, head.y, 7 * penAlpha, 0, Math.PI * 2);
                   ctx.fill();
                   ctx.restore();
                 }
@@ -699,17 +1073,120 @@
                 ctx.fillStyle = '#0B0B0D';
                 ctx.strokeStyle = graphColor;
                 ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.9 * layer.opacity;
                 for (const marker of markers) {
-                  const mx = marginX + (marker.x - worldXMin) * xScale;
-                  const my = marginY + (worldYMax - marker.y) * yScale;
+                  const m = project(marker.x, marker.y);
+                  if (m.x < -8 || m.x > w + 8 || m.y < -8 || m.y > h + 8) continue;
                   ctx.beginPath();
-                  ctx.arc(mx, my, 4, 0, Math.PI * 2);
+                  ctx.arc(m.x, m.y, 4, 0, Math.PI * 2);
                   ctx.fill();
                   ctx.stroke();
                 }
               }
             }
             ctx.restore();
+
+            const cursor = state.cursor;
+            const active = derivedLayers.find((l) => l.id === activeLayerId && l.valid && l.visible);
+            if (cursor && active) {
+              const world = screenToWorld(cursor.x, cursor.y, current, w, h);
+              const y = evalY(active.code, active.params, world.x);
+              if (y !== null) {
+                const p = project(world.x, y);
+                const slope = finiteDerivative(active.code, active.params, world.x, current.scale);
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 5]);
+                ctx.beginPath();
+                ctx.moveTo(cursor.x, 0);
+                ctx.lineTo(cursor.x, h);
+                ctx.moveTo(0, cursor.y);
+                ctx.lineTo(w, cursor.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.shadowColor = primaryEmotion.colors.glow;
+                ctx.shadowBlur = 12;
+                ctx.fillStyle = '#0B0B0D';
+                ctx.strokeStyle = primaryEmotion.colors.graph[0];
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                const label = `(${formatTick(world.x)}, ${formatTick(y)})  m=${slope === null ? 'undef' : formatTick(slope)}`;
+                ctx.font = '11px JetBrains Mono, monospace';
+                const labelW = ctx.measureText(label).width + 18;
+                const lx = Math.min(w - labelW - 12, Math.max(12, cursor.x + 14));
+                const ly = Math.min(h - 34, Math.max(12, cursor.y - 28));
+                ctx.fillStyle = 'rgba(12,12,18,0.78)';
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                ctx.beginPath();
+                roundedRectPath(ctx, lx, ly, labelW, 24, 8);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(245,243,239,0.92)';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, lx + 9, ly + 12);
+                ctx.restore();
+              }
+            }
+
+            if (showNavigator) {
+              const navW = 154;
+              const navH = 92;
+              const nx = w - navW - 16;
+              const ny = h - navH - 86;
+              ctx.save();
+              ctx.fillStyle = 'rgba(12,12,18,0.58)';
+              ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              roundedRectPath(ctx, nx, ny, navW, navH, 8);
+              ctx.fill();
+              ctx.stroke();
+              const navXMin = -12;
+              const navXMax = 12;
+              const navYMin = -3;
+              const navYMax = 3;
+              const mapX = (x) => nx + ((x - navXMin) / (navXMax - navXMin)) * navW;
+              const mapY = (y) => ny + navH - ((y - navYMin) / (navYMax - navYMin)) * navH;
+              const navLayer = derivedLayers.find((l) => l.visible && l.valid);
+              if (navLayer) {
+                const navPts = sampleCurveRange(navLayer.code, navLayer.params, 140, navXMin, navXMax).filter((p) => p.y !== null);
+                ctx.strokeStyle = `${primaryEmotion.colors.graph[0]}aa`;
+                ctx.lineWidth = 1.3;
+                smoothCurve(ctx, navPts.map((p) => ({ x: mapX(p.x), y: mapY(p.y * 2.4) })));
+                ctx.stroke();
+              }
+              const vx1 = mapX(Math.max(navXMin, viewport.xMin));
+              const vx2 = mapX(Math.min(navXMax, viewport.xMax));
+              const vy1 = mapY(Math.min(navYMax, viewport.yMax));
+              const vy2 = mapY(Math.max(navYMin, viewport.yMin));
+              ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+              ctx.strokeRect(Math.min(vx1, vx2), Math.min(vy1, vy2), Math.max(4, Math.abs(vx2 - vx1)), Math.max(4, Math.abs(vy2 - vy1)));
+              ctx.restore();
+            }
+
+            if (now < state.interactingUntil) {
+              const zoomPct = Math.round((getInitialCamera(w, h).scale / current.scale) * 100);
+              const info = `${zoomPct}%   x ${formatTick(viewport.xMin)}..${formatTick(viewport.xMax)}   y ${formatTick(viewport.yMin)}..${formatTick(viewport.yMax)}`;
+              ctx.save();
+              ctx.font = '11px JetBrains Mono, monospace';
+              const infoW = ctx.measureText(info).width + 20;
+              ctx.fillStyle = 'rgba(12,12,18,0.68)';
+              ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+              ctx.beginPath();
+              roundedRectPath(ctx, 16, h - 132, infoW, 26, 8);
+              ctx.fill();
+              ctx.stroke();
+              ctx.fillStyle = 'rgba(245,243,239,0.88)';
+              ctx.textAlign = 'left';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(info, 26, h - 119);
+              ctx.restore();
+            }
 
             const vignette = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.24, w / 2, h / 2, Math.max(w, h) * 0.8);
             vignette.addColorStop(0, 'rgba(11,11,13,0)');
@@ -722,7 +1199,7 @@
 
           rafRef.current = requestAnimationFrame(draw);
           return () => cancelAnimationFrame(rafRef.current);
-        }, [derivedLayers, primaryLayer, primaryEmotion, playing]);
+        }, [activeLayerId, derivedLayers, panByPixels, primaryEmotion, showNavigator]);
 
         useEffect(() => {
           const chains = audioChainsRef.current;
@@ -884,6 +1361,11 @@
           link.download = 'equation-orchestra-scene.png';
           link.href = canvas.toDataURL('image/png');
           link.click();
+        };
+
+        const saveBookmark = () => {
+          const cam = cameraRef.current.target;
+          setBookmarks((prev) => [{ ...cam, label: `View ${prev.length + 1}` }, ...prev].slice(0, 5));
         };
 
         const activeEmotion = EMOTIONS[activeLayer.emotionKey];
@@ -1146,10 +1628,29 @@
                 )}
               </div>
 
+              {bookmarks.length > 0 && (
+                <div className='eo-fade-in' style={{
+                  position: 'absolute', left: '50%', bottom: 76, transform: 'translateX(-50%)',
+                  display: 'flex', alignItems: 'center', gap: 6, maxWidth: 'calc(100% - 32px)', overflowX: 'auto',
+                  background: 'rgba(12,12,18,0.56)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 999, padding: '6px 8px',
+                }}>
+                  {bookmarks.map((bookmark, index) => (
+                    <button key={`${bookmark.label}-${index}`} onClick={() => setCameraTarget(bookmark, true)} className='eo-btn' style={{
+                      border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcbd8',
+                      borderRadius: 999, padding: '5px 9px', fontSize: 10.5, cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}>
+                      {bookmark.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div style={{
                 position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)',
                 display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(12,12,18,0.68)',
                 backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 999, padding: '9px 14px',
+                maxWidth: 'calc(100% - 32px)', overflowX: 'auto',
               }}>
                 <button onClick={togglePlay} className='eo-btn' style={{
                   width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
@@ -1175,6 +1676,42 @@
                 </div>
 
                 <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.14)' }} />
+
+                <button onClick={() => resetCamera(true)} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }} aria-label='Reset viewport'>
+                  <span>0</span>
+                </button>
+
+                <button onClick={undoCamera} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }} aria-label='Previous viewport'>
+                  <span>↶</span>
+                </button>
+
+                <button onClick={redoCamera} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }} aria-label='Next viewport'>
+                  <span>↷</span>
+                </button>
+
+                <button onClick={saveBookmark} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }} aria-label='Save viewport bookmark'>
+                  <span>★</span> {bookmarks.length}
+                </button>
+
+                <button onClick={() => setShowNavigator((v) => !v)} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: showNavigator ? '#cfcbd8' : '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }} aria-label='Toggle mini navigator'>
+                  <span>▣</span>
+                </button>
+
+                <button onClick={shareViewport} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }} aria-label='Share viewport'>
+                  <span>↗</span>
+                </button>
 
                 <button onClick={() => setShowLayers((v) => !v)} className='eo-btn' style={{
                   background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
