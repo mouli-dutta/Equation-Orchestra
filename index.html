@@ -1,1737 +1,2225 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Equation Orchestra</title>
-    <style>
-      :root { color-scheme: dark; }
-      * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; min-height: 100%; background: #0B0B0D; color: #f0edf7; }
-      body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
-      #root { min-height: 100vh; padding: 0; }
-      .eo-slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.14); outline: none; }
-      .eo-slider:disabled { opacity: 0.35; }
-      .eo-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--eo-accent, #fff); cursor: pointer; box-shadow: 0 0 8px var(--eo-accent, #fff); }
-      .eo-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--eo-accent, #fff); border: none; cursor: pointer; box-shadow: 0 0 8px var(--eo-accent, #fff); }
-      .eo-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-      .eo-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
-      .eo-fade-in { animation: eoFade 0.4s ease both; }
-      @keyframes eoFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-      .eo-btn { transition: all 0.15s ease; }
-      .eq-animation { animation: eqGlow 0.45s ease both; }
-      @keyframes eqGlow {
-        0% { box-shadow: 0 0 0 rgba(139,92,246,0); transform: translateY(0); }
-        25% { box-shadow: 0 0 22px rgba(139,92,246,0.22); transform: translateY(-1px); }
-        100% { box-shadow: 0 0 0 rgba(139,92,246,0); transform: translateY(0); }
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equation Orchestra</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: #0B0B0D;
+      color: #f0edf7;
+    }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    #root {
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    .eo-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.14);
+      outline: none;
+    }
+
+    .eo-slider:disabled {
+      opacity: 0.35;
+    }
+
+    .eo-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--eo-accent, #fff);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--eo-accent, #fff);
+    }
+
+    .eo-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--eo-accent, #fff);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--eo-accent, #fff);
+    }
+
+    .eo-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    .eo-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 4px;
+    }
+
+    .eo-fade-in {
+      animation: eoFade 0.4s ease both;
+    }
+
+    @keyframes eoFade {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
       }
-      .eo-btn:hover { transform: translateY(-1px); }
-      .eo-btn:active { transform: translateY(0); }
-      .eo-row:hover { background: rgba(255,255,255,0.05) !important; }
-      button, input, summary { font: inherit; }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.10.0/lib/browser/math.js"></script>
-    <script src="https://unpkg.com/tone/build/Tone.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
-    <script type="text/babel">
-      const { useState, useRef, useEffect, useMemo, useCallback } = React;
-      const { createRoot } = ReactDOM;
+    .eo-btn {
+      transition: all 0.15s ease;
+    }
 
-      const SCALES = {
-        major: [0, 2, 4, 5, 7, 9, 11],
-        minor: [0, 2, 3, 5, 7, 8, 10],
-        pentatonic: [0, 2, 4, 7, 9],
-        chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    .eq-animation {
+      animation: eqGlow 0.45s ease both;
+    }
+
+    @keyframes eqGlow {
+      0% {
+        box-shadow: 0 0 0 rgba(139, 92, 246, 0);
+        transform: translateY(0);
+      }
+
+      25% {
+        box-shadow: 0 0 22px rgba(139, 92, 246, 0.22);
+        transform: translateY(-1px);
+      }
+
+      100% {
+        box-shadow: 0 0 0 rgba(139, 92, 246, 0);
+        transform: translateY(0);
+      }
+    }
+
+    .eo-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .eo-btn:active {
+      transform: translateY(0);
+    }
+
+    .eo-row:hover {
+      background: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    button,
+    input,
+    summary {
+      font: inherit;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.10.0/lib/browser/math.js"></script>
+  <script src="https://unpkg.com/tone/build/Tone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useMemo, useCallback } = React;
+    const { createRoot } = ReactDOM;
+
+    const SCALES = {
+      major: [0, 2, 4, 5, 7, 9, 11],
+      minor: [0, 2, 3, 5, 7, 8, 10],
+      pentatonic: [0, 2, 4, 7, 9],
+      chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    };
+
+    const EMOTIONS = {
+      dream: {
+        label: 'Dream', root: 57,
+        colors: { bg: ['#1a1a2e', '#20263f', '#0f3460'], graph: ['#f3a6c1', '#e94560'], particle: '#f5eaf1', glow: '#e94560' },
+        camera: { motion: 'float', speed: 0.35 },
+        particles: { density: 70, behavior: 'float', size: [1.5, 4] },
+        audio: { instrument: 'ambient', scale: 'pentatonic', effects: ['reverb', 'delay'] },
+        post: { bloom: 0.75, vignette: 0.35 },
+      },
+      cosmic: {
+        label: 'Cosmic', root: 45,
+        colors: { bg: ['#04010c', '#0d0221', '#1c0a3a'], graph: ['#a78bfa', '#7c3aed'], particle: '#c4b5fd', glow: '#8b5cf6' },
+        camera: { motion: 'orbit', speed: 0.18 },
+        particles: { density: 130, behavior: 'float', size: [1, 3] },
+        audio: { instrument: 'ambient', scale: 'minor', effects: ['reverb'] },
+        post: { bloom: 0.9, vignette: 0.45 },
+      },
+      epic: {
+        label: 'Epic', root: 48,
+        colors: { bg: ['#12060a', '#2b0a12', '#4a0e1c'], graph: ['#ffb703', '#ff4d6d'], particle: '#ffd166', glow: '#ff4d6d' },
+        camera: { motion: 'zoom', speed: 0.25 },
+        particles: { density: 60, behavior: 'explode', size: [2, 5] },
+        audio: { instrument: 'cinematic', scale: 'minor', effects: ['reverb'] },
+        post: { bloom: 0.7, vignette: 0.4 },
+      },
+      calm: {
+        label: 'Calm', root: 60,
+        colors: { bg: ['#071a2b', '#0e2c44', '#153f5c'], graph: ['#9fd8ff', '#7ec8e3'], particle: '#dff3ff', glow: '#7ec8e3' },
+        camera: { motion: 'breathe', speed: 0.15 },
+        particles: { density: 40, behavior: 'float', size: [1, 3] },
+        audio: { instrument: 'cinematic', scale: 'major', effects: ['reverb'] },
+        post: { bloom: 0.4, vignette: 0.25 },
+      },
+      mystery: {
+        label: 'Mystery', root: 43,
+        colors: { bg: ['#0a0510', '#180a24', '#241033'], graph: ['#c084fc', '#7e22ce'], particle: '#a78bfa', glow: '#9333ea' },
+        camera: { motion: 'pan', speed: 0.12 },
+        particles: { density: 90, behavior: 'attract', size: [1, 3] },
+        audio: { instrument: 'ambient', scale: 'chromatic', effects: ['delay', 'reverb'] },
+        post: { bloom: 0.55, vignette: 0.55 },
+      },
+      chaos: {
+        label: 'Chaos', root: 50,
+        colors: { bg: ['#050505', '#1a0505', '#0a0a1a'], graph: ['#ff2d55', '#00e5ff'], particle: '#ffffff', glow: '#ff2d55' },
+        camera: { motion: 'orbit', speed: 0.6 },
+        particles: { density: 150, behavior: 'explode', size: [1, 6] },
+        audio: { instrument: 'percussion', scale: 'chromatic', effects: ['delay'] },
+        post: { bloom: 1, vignette: 0.3 },
+      },
+      hope: {
+        label: 'Hope', root: 55,
+        colors: { bg: ['#1a1206', '#332008', '#4d3010'], graph: ['#ffe066', '#ffd166'], particle: '#fff3c4', glow: '#ffd166' },
+        camera: { motion: 'float', speed: 0.2 },
+        particles: { density: 65, behavior: 'float', size: [1.5, 4] },
+        audio: { instrument: 'synth', scale: 'major', effects: ['delay'] },
+        post: { bloom: 0.6, vignette: 0.2 },
+      },
+      aurora: {
+        label: 'Aurora', root: 52,
+        colors: { bg: ['#020c1b', '#04182e', '#062b3d'], graph: ['#5eead4', '#a78bfa'], particle: '#99f6e4', glow: '#2dd4bf' },
+        camera: { motion: 'float', speed: 0.22 },
+        particles: { density: 100, behavior: 'flow', size: [1.5, 4] },
+        audio: { instrument: 'ambient', scale: 'pentatonic', effects: ['reverb', 'delay'] },
+        post: { bloom: 0.85, vignette: 0.35 },
+      },
+    };
+
+    const EMOTION_KEYS = Object.keys(EMOTIONS);
+
+    const EQUATIONS = [
+      { label: 'Wave', eq: 'A*sin(B*x+C)' },
+      { label: 'Power', eq: 'A*x^B' },
+      { label: 'Damped oscillation', eq: 'A*exp(-0.1*x^2)*sin(B*x)' },
+      { label: 'Interference', eq: 'A*sin(B*x)*cos(C*x)' },
+      { label: 'Spiral pulse', eq: 'sin(A*x)/(1+0.05*B*x^2)' },
+      { label: "Heart", eq: "(x*x+y*y-1)^3=x*x*y^3" },
+      { label: 'Harmonic Series', eq: 'sin(x)+0.5*sin(2*x)+0.25*sin(3*x)' },
+      { label: 'Fourier Wave', eq: 'sin(x)+sin(3*x)/3+sin(5*x)/5+sin(7*x)/7' },
+      { label: 'Bell Curve', eq: 'exp(-0.05*x^2)*sin(B*x)' },
+      { label: 'Chime', eq: 'exp(-0.02*x^2)*sin(B*x)*cos(C*x)' },
+      { label: 'Gong', eq: 'exp(-0.01*x^2)*sin(B*x)/(1+0.01*x^2)' },
+      { label: 'Hyperbolic', eq: 'tanh(sin(A*x))*cos(B*x)' },
+      { label: 'Exponential Pulse', eq: 'exp(-0.01*x)*sin(A*x)' },
+      { label: 'Oscillator', eq: 'sin(A*x)/(1+0.01*x^2)' },
+      { label: 'Galaxy', eq: 'sin(0.5*x)+0.5*sin(2*x)+0.25*cos(5*x)' },
+      { label: 'Nebula', eq: 'exp(-0.005*x^2)*(sin(2*x)+0.5*cos(6*x))' },
+      { label: 'Orbit', eq: 'sin(A*x)*sin(B*x)+0.5*cos(C*x)' },
+      { label: "Lemniscate", eq: "(x*x+y*y)^2=2*(x*x-y*y)"},
+      { label: "Astroid", eq: "pow(abs(x),2/3)+pow(abs(y),2/3)=1"},
+      { label: "Eight Petals", eq: "sqrt(x*x+y*y)=cos(8*atan2(y,x))" },
+      { label: "Sun", eq: "sqrt(x*x+y*y)=1+0.25*sin(24*atan2(y,x))" },
+      { label: "Snowflake", eq: "sqrt(x*x+y*y)=1+0.2*cos(6*atan2(y,x))" },
+      { label: "Clover", eq: "sqrt(x*x+y*y)=sin(4*atan2(y,x))" },
+      { label: "Galaxy", eq: "sqrt(x*x+y*y)=1+0.1*sin(30*atan2(y,x)+5*sqrt(x*x+y*y))" },
+      { label: "Ripple", eq: "sin(5*sqrt(x*x+y*y))=0" },
+      { label: "Mandala", eq: "sqrt(x*x+y*y)=1+0.1*sin(12*atan2(y,x))*cos(6*sqrt(x*x+y*y))" },
+    ];
+
+    
+    const GALLERY = [
+      { name: 'Galaxy', eq: 'sin(A*x)/(1+0.04*x^2)', params: { A: 4 }, emotion: 'cosmic' },
+      { name: 'Heartbeat', eq: 'A*exp(-0.3*sin(B*x)^2)*sin(C*x)', params: { A: 2, B: 1, C: 8 }, emotion: 'epic' },
+      { name: 'Aurora Wave', eq: 'A*sin(B*x)*cos(0.3*x)', params: { A: 2, B: 2 }, emotion: 'aurora' },
+      { name: 'Butterfly', eq: 'A*sin(B*x)*exp(cos(x))', params: { A: 0.6, B: 3 }, emotion: 'dream' },
+      { name: 'Infinity Loop', eq: 'A*sin(B*x+C)', params: { A: 3, B: 0.5, C: 0 }, emotion: 'mystery' },
+      { name: 'Still Water', eq: 'A*sin(B*x)', params: { A: 1.5, B: 1 }, emotion: 'calm' },
+    ];
+
+    const X_MIN = -12;
+    const X_MAX = 12;
+    const VISUAL_SAMPLES = 320;
+    const AUDIO_STEPS = 32;
+    const MAX_LAYERS = 4;
+    const CURVE_SAMPLE_COUNT = 420;
+    const MIN_CAMERA_SCALE = 1e-100;
+    const MAX_CAMERA_SCALE = 1e100;
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    const BUILT_IN_NAMES = new Set([
+      'x', 'y', 't', 'theta', 'r', 'pi', 'e', 'phi', 'tau', 'true', 'false', 'Infinity', 'NaN',
+      'sin', 'cos', 'tan', 'sec', 'csc', 'cot', 'asin', 'acos', 'atan',
+      'sinh', 'cosh', 'tanh', 'sqrt', 'cbrt', 'abs', 'exp', 'ln', 'log',
+      'log10', 'log2', 'floor', 'ceil', 'round', 'min', 'max', 'pow', 'mod',
+      'sign', 'clamp', 'Re', 'Im', 're', 'im',
+    ]);
+
+    function normalizeEquationText(input) {
+      return (input || '')
+        .replace(/\r/g, '')
+        .replace(/[−–—]/g, '-')
+        .replace(/[πΠ]/g, 'pi')
+        .replace(/[τΤ]/g, 'tau')
+        .replace(/[φΦ]/g, 'phi')
+        .replace(/[θΘ]/g, 'theta')
+        .replace(/²/g, '^2')
+        .replace(/³/g, '^3')
+        .replace(/⁴/g, '^4')
+        .replace(/⁵/g, '^5')
+        .replace(/⁶/g, '^6')
+        .replace(/⁷/g, '^7')
+        .replace(/⁸/g, '^8')
+        .replace(/⁹/g, '^9')
+        .replace(/≥/g, '>=')
+        .replace(/≤/g, '<=')
+        .replace(/≠/g, '!=')
+        .replace(/\bln\s*\(/gi, 'log(')
+        .replace(/\bRe\s*\(/g, 're(')
+        .replace(/\bIm\s*\(/g, 'im(')
+        .trim();
+    }
+
+    function normalizeExpression(expr) {
+      let out = normalizeEquationText(expr);
+      out = out.replace(/\|([^|]+)\|/g, 'abs($1)');
+      out = out.replace(/\b([A-Za-z]\w*)\s+(?=[A-Za-z0-9_(])/g, '$1*');
+      out = out.replace(/(\d(?:\.\d+)?)\s*([A-Za-z_])/g, '$1*$2');
+      out = out.replace(/\b([a-zA-Z])x\b/g, '$1*x');
+      out = out.replace(/\b([a-zA-Z])theta\b/g, '$1*theta');
+      return out;
+    }
+
+    function baseMathScope(extra = {}) {
+      return {
+        pi: Math.PI,
+        tau: Math.PI * 2,
+        phi: (1 + Math.sqrt(5)) / 2,
+        e: Math.E,
+        clamp: (v, lo, hi) => Math.min(Math.max(v, lo), hi),
+        cbrt: Math.cbrt,
+        re: (v) => (typeof v === 'number' ? v : v?.re ?? 0),
+        im: (v) => (typeof v === 'number' ? 0 : v?.im ?? 0),
+        ...extra,
       };
+    }
 
-      const EMOTIONS = {
-        dream: {
-          label: 'Dream', root: 57,
-          colors: { bg: ['#1a1a2e', '#20263f', '#0f3460'], graph: ['#f3a6c1', '#e94560'], particle: '#f5eaf1', glow: '#e94560' },
-          camera: { motion: 'float', speed: 0.35 },
-          particles: { density: 70, behavior: 'float', size: [1.5, 4] },
-          audio: { instrument: 'ambient', scale: 'pentatonic', effects: ['reverb', 'delay'] },
-          post: { bloom: 0.75, vignette: 0.35 },
-        },
-        cosmic: {
-          label: 'Cosmic', root: 45,
-          colors: { bg: ['#04010c', '#0d0221', '#1c0a3a'], graph: ['#a78bfa', '#7c3aed'], particle: '#c4b5fd', glow: '#8b5cf6' },
-          camera: { motion: 'orbit', speed: 0.18 },
-          particles: { density: 130, behavior: 'float', size: [1, 3] },
-          audio: { instrument: 'ambient', scale: 'minor', effects: ['reverb'] },
-          post: { bloom: 0.9, vignette: 0.45 },
-        },
-        epic: {
-          label: 'Epic', root: 48,
-          colors: { bg: ['#12060a', '#2b0a12', '#4a0e1c'], graph: ['#ffb703', '#ff4d6d'], particle: '#ffd166', glow: '#ff4d6d' },
-          camera: { motion: 'zoom', speed: 0.25 },
-          particles: { density: 60, behavior: 'explode', size: [2, 5] },
-          audio: { instrument: 'cinematic', scale: 'minor', effects: ['reverb'] },
-          post: { bloom: 0.7, vignette: 0.4 },
-        },
-        calm: {
-          label: 'Calm', root: 60,
-          colors: { bg: ['#071a2b', '#0e2c44', '#153f5c'], graph: ['#9fd8ff', '#7ec8e3'], particle: '#dff3ff', glow: '#7ec8e3' },
-          camera: { motion: 'breathe', speed: 0.15 },
-          particles: { density: 40, behavior: 'float', size: [1, 3] },
-          audio: { instrument: 'cinematic', scale: 'major', effects: ['reverb'] },
-          post: { bloom: 0.4, vignette: 0.25 },
-        },
-        mystery: {
-          label: 'Mystery', root: 43,
-          colors: { bg: ['#0a0510', '#180a24', '#241033'], graph: ['#c084fc', '#7e22ce'], particle: '#a78bfa', glow: '#9333ea' },
-          camera: { motion: 'pan', speed: 0.12 },
-          particles: { density: 90, behavior: 'attract', size: [1, 3] },
-          audio: { instrument: 'ambient', scale: 'chromatic', effects: ['delay', 'reverb'] },
-          post: { bloom: 0.55, vignette: 0.55 },
-        },
-        chaos: {
-          label: 'Chaos', root: 50,
-          colors: { bg: ['#050505', '#1a0505', '#0a0a1a'], graph: ['#ff2d55', '#00e5ff'], particle: '#ffffff', glow: '#ff2d55' },
-          camera: { motion: 'orbit', speed: 0.6 },
-          particles: { density: 150, behavior: 'explode', size: [1, 6] },
-          audio: { instrument: 'percussion', scale: 'chromatic', effects: ['delay'] },
-          post: { bloom: 1, vignette: 0.3 },
-        },
-        hope: {
-          label: 'Hope', root: 55,
-          colors: { bg: ['#1a1206', '#332008', '#4d3010'], graph: ['#ffe066', '#ffd166'], particle: '#fff3c4', glow: '#ffd166' },
-          camera: { motion: 'float', speed: 0.2 },
-          particles: { density: 65, behavior: 'float', size: [1.5, 4] },
-          audio: { instrument: 'synth', scale: 'major', effects: ['delay'] },
-          post: { bloom: 0.6, vignette: 0.2 },
-        },
-        aurora: {
-          label: 'Aurora', root: 52,
-          colors: { bg: ['#020c1b', '#04182e', '#062b3d'], graph: ['#5eead4', '#a78bfa'], particle: '#99f6e4', glow: '#2dd4bf' },
-          camera: { motion: 'float', speed: 0.22 },
-          particles: { density: 100, behavior: 'flow', size: [1.5, 4] },
-          audio: { instrument: 'ambient', scale: 'pentatonic', effects: ['reverb', 'delay'] },
-          post: { bloom: 0.85, vignette: 0.35 },
-        },
+    function evaluateCompiled(code, scope) {
+      try {
+        const value = code.evaluate(baseMathScope(scope));
+        if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+        if (value && typeof value.re === 'number') return Number.isFinite(value.re) ? value.re : null;
+        return null;
+      } catch {
+        return null;
+      }
+    }
+
+    function evaluateCondition(code, scope) {
+      try {
+        const value = code.evaluate(baseMathScope(scope));
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'number') return Number.isFinite(value) && value !== 0;
+        return !!value;
+      } catch {
+        return false;
+      }
+    }
+
+    function compileExpression(expr) {
+      const normalized = normalizeExpression(expr);
+      const node = math.parse(normalized);
+      return { source: normalized, node, code: node.compile() };
+    }
+
+    function collectSymbolsFromSource(source) {
+      const names = new Set();
+      const re = /\b[A-Za-z_]\w*\b/g;
+      let m;
+      while ((m = re.exec(source)) !== null) {
+        const name = m[0];
+        const next = source.slice(re.lastIndex).trimStart()[0];
+        if (next === '(' || BUILT_IN_NAMES.has(name)) continue;
+        names.add(name);
+      }
+      return names;
+    }
+
+    function detectParameters(eq, reserved = new Set()) {
+      const found = collectSymbolsFromSource(normalizeEquationText(eq));
+      for (const name of reserved) found.delete(name);
+      return [...found].sort((a, b) => a.localeCompare(b));
+    }
+
+    function splitTopLevel(text, separator) {
+      let depth = 0;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '(' || ch === '[' || ch === '{') depth++;
+        else if (ch === ')' || ch === ']' || ch === '}') depth--;
+        else if (ch === separator && depth === 0) return [text.slice(0, i), text.slice(i + 1)];
+      }
+      return [text];
+    }
+
+    function makeMathModel(rawEquation) {
+      const raw = rawEquation?.trim() || 'sin(x)';
+      const normalized = normalizeEquationText(raw);
+      try {
+        const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
+        const lower = normalized.toLowerCase();
+
+        const xLine = lines.find((line) => /^x\s*=/.test(line));
+        const yLine = lines.find((line) => /^y\s*=/.test(line));
+        if (xLine && yLine) {
+          const xExpr = compileExpression(xLine.replace(/^x\s*=/, ''));
+          const yExpr = compileExpression(yLine.replace(/^y\s*=/, ''));
+          const vars = new Set([...collectSymbolsFromSource(xExpr.source), ...collectSymbolsFromSource(yExpr.source)]);
+          vars.delete('t');
+          return { type: 'parametric', label: 'parametric', raw, xExpr, yExpr, tMin: -Math.PI * 2, tMax: Math.PI * 2, variables: [...vars].sort(), valid: true, error: '' };
+        }
+
+        const rMatch = normalized.match(/^r\s*=\s*([\s\S]+)$/i);
+        if (rMatch) {
+          const rExpr = compileExpression(rMatch[1]);
+          const vars = collectSymbolsFromSource(rExpr.source);
+          vars.delete('theta');
+          vars.delete('t');
+          return { type: 'polar', label: 'polar', raw, rExpr, tMin: -Math.PI * 2, tMax: Math.PI * 2, variables: [...vars].sort(), valid: true, error: '' };
+        }
+
+        const pieceLines = lines.filter((line) => splitTopLevel(line, ',').length === 2);
+        if (pieceLines.length >= 2 || (lines.length > 1 && /^y\s*=$/i.test(lines[0]))) {
+          const parts = (pieceLines.length ? pieceLines : lines.slice(1)).map((line) => {
+            const [expr, condition] = splitTopLevel(line, ',');
+            return { expr: compileExpression(expr), condition: compileExpression(condition || 'true') };
+          });
+          const vars = new Set();
+          parts.forEach((p) => {
+            collectSymbolsFromSource(p.expr.source).forEach((v) => vars.add(v));
+            collectSymbolsFromSource(p.condition.source).forEach((v) => vars.add(v));
+          });
+          vars.delete('x');
+          return { type: 'piecewise', label: 'piecewise', raw, parts, variables: [...vars].sort(), valid: true, error: '' };
+        }
+
+        if (normalized.includes('=') && !/^y\s*=/.test(lower)) {
+          const [left, right] = splitTopLevel(normalized, '=');
+          const expr = compileExpression(`(${left})-(${right})`);
+          const vars = collectSymbolsFromSource(expr.source);
+          vars.delete('x');
+          vars.delete('y');
+          return { type: 'implicit', label: 'implicit', raw, expr, variables: [...vars].sort(), valid: true, error: '' };
+        }
+
+        const explicitSource = normalized.replace(/^y\s*=\s*/i, '');
+        const expr = compileExpression(explicitSource);
+        const vars = collectSymbolsFromSource(expr.source);
+        vars.delete('x');
+        return { type: 'explicit', label: 'explicit', raw, expr, variables: [...vars].sort(), valid: true, error: '' };
+      } catch (error) {
+        return { type: 'invalid', label: 'invalid', raw, variables: [], valid: false, error: error?.message || 'Invalid equation' };
+      }
+    }
+
+    function sampleCurve(code, params, count) {
+      const raw = [];
+      let maxAbs = 0.0001;
+      for (let i = 0; i < count; i++) {
+        const x = X_MIN + (i / (count - 1)) * (X_MAX - X_MIN);
+        const y = evalY(code, params, x);
+        if (y !== null) maxAbs = Math.max(maxAbs, Math.abs(y));
+        raw.push({ x, y });
+      }
+      const scale = maxAbs > 0 ? 1 / maxAbs : 1;
+      return raw.map((r) => ({ x: r.x, y: r.y === null ? null : r.y * scale }));
+    }
+
+    function sampleCurveRange(code, params, count, xMin, xMax) {
+      const raw = [];
+      let maxAbs = 0.0001;
+      for (let i = 0; i < count; i++) {
+        const x = xMin + (i / (count - 1)) * (xMax - xMin);
+        const y = evalY(code, params, x);
+        if (y !== null) maxAbs = Math.max(maxAbs, Math.abs(y));
+        raw.push({ x, y });
+      }
+      const scale = maxAbs > 0 ? 1 / maxAbs : 1;
+      return raw.map((r) => ({ x: r.x, y: r.y === null ? null : r.y * scale }));
+    }
+
+    function getNiceTick(span) {
+      const normalized = span <= 0 ? 1 : span;
+      const exponent = Math.floor(Math.log10(normalized));
+      const fraction = normalized / Math.pow(10, exponent);
+      const niceFraction = fraction < 1.5 ? 1 : fraction < 3 ? 2 : fraction < 7 ? 5 : 10;
+      return niceFraction * Math.pow(10, exponent);
+    }
+
+    function getGridSteps(unitsPerPixel) {
+      const major = getNiceTick(unitsPerPixel * 110);
+      return { major, minor: major / 5 };
+    }
+
+    function formatTick(value) {
+      if (Math.abs(value) < 1e-12) return '0';
+      const abs = Math.abs(value);
+      if (abs >= 1e6 || abs < 1e-4) return value.toExponential(2).replace('+', '');
+      if (abs >= 1000) return value.toFixed(0);
+      if (abs >= 10) return value.toFixed(1).replace(/\.0$/, '');
+      if (abs >= 1) return value.toFixed(2).replace(/\.?0+$/, '');
+      const decimals = Math.min(8, Math.max(2, Math.ceil(-Math.log10(abs)) + 2));
+      return value.toFixed(decimals).replace(/\.?0+$/, '');
+    }
+
+    function clampCameraScale(scale) {
+      return Math.max(MIN_CAMERA_SCALE, Math.min(MAX_CAMERA_SCALE, scale));
+    }
+
+    function getInitialCamera(w, h) {
+      return { x: 0, y: 0, scale: Math.max(24 / Math.max(1, w), 6 / Math.max(1, h)) };
+    }
+
+    function getViewport(camera, w, h) {
+      const halfW = (w * camera.scale) / 2;
+      const halfH = (h * camera.scale) / 2;
+      return {
+        xMin: camera.x - halfW,
+        xMax: camera.x + halfW,
+        yMin: camera.y - halfH,
+        yMax: camera.y + halfH,
+        width: halfW * 2,
+        height: halfH * 2,
       };
+    }
 
-      const EMOTION_KEYS = Object.keys(EMOTIONS);
+    function worldToScreen(x, y, camera, w, h) {
+      return { x: (x - camera.x) / camera.scale + w / 2, y: h / 2 - (y - camera.y) / camera.scale };
+    }
 
-      const TEMPLATES = [
-        { label: 'Wave', eq: 'A*sin(B*x+C)' },
-        { label: 'Power', eq: 'A*x^B' },
-        { label: 'Damped oscillation', eq: 'A*exp(-0.1*x^2)*sin(B*x)' },
-        { label: 'Interference', eq: 'A*sin(B*x)*cos(C*x)' },
-        { label: 'Spiral pulse', eq: 'sin(A*x)/(1+0.05*B*x^2)' },
-      ];
+    function screenToWorld(x, y, camera, w, h) {
+      return { x: camera.x + (x - w / 2) * camera.scale, y: camera.y + (h / 2 - y) * camera.scale };
+    }
 
-      const GALLERY = [
-        { name: 'Galaxy', eq: 'sin(A*x)/(1+0.04*x^2)', params: { A: 4 }, emotion: 'cosmic' },
-        { name: 'Heartbeat', eq: 'A*exp(-0.3*sin(B*x)^2)*sin(C*x)', params: { A: 2, B: 1, C: 8 }, emotion: 'epic' },
-        { name: 'Aurora Wave', eq: 'A*sin(B*x)*cos(0.3*x)', params: { A: 2, B: 2 }, emotion: 'aurora' },
-        { name: 'Butterfly', eq: 'A*sin(B*x)*exp(cos(x))', params: { A: 0.6, B: 3 }, emotion: 'dream' },
-        { name: 'Infinity Loop', eq: 'A*sin(B*x+C)', params: { A: 3, B: 0.5, C: 0 }, emotion: 'mystery' },
-        { name: 'Still Water', eq: 'A*sin(B*x)', params: { A: 1.5, B: 1 }, emotion: 'calm' },
-      ];
+    function evalY(code, params, x) {
+      const compiled = code?.code ? code.code : code;
+      if (!compiled) return null;
+      return evaluateCompiled(compiled, { x, ...params });
+    }
 
-      const X_MIN = -12;
-      const X_MAX = 12;
-      const VISUAL_SAMPLES = 320;
-      const AUDIO_STEPS = 32;
-      const MAX_LAYERS = 4;
-      const CURVE_SAMPLE_COUNT = 420;
-      const MIN_CAMERA_SCALE = 1e-100;
-      const MAX_CAMERA_SCALE = 1e100;
-
-      function lerp(a, b, t) {
-        return a + (b - a) * t;
-      }
-
-      function easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
-      }
-
-      function easeInOutCubic(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      }
-
-      function detectParameters(eq) {
-        const found = new Set();
-        const re = /\b([A-Z])\b/g;
-        let m;
-        while ((m = re.exec(eq)) !== null) {
-          if (!['X', 'Y', 'T'].includes(m[1])) found.add(m[1]);
-        }
-        return [...found].sort();
-      }
-
-      function compileSafe(eq) {
-        try {
-          const node = math.parse(eq);
-          const code = node.compile();
-          code.evaluate({ x: 1, A: 1, B: 1, C: 1, D: 1 });
-          return code;
-        } catch (e) {
-          return null;
+    function evalModelY(model, params, x) {
+      if (!model?.valid) return null;
+      if (model.type === 'explicit') return evaluateCompiled(model.expr.code, { x, ...params });
+      if (model.type === 'piecewise') {
+        for (const part of model.parts) {
+          const ok = evaluateCondition(part.condition.code, { x, ...params });
+          if (ok) return evaluateCompiled(part.expr.code, { x, ...params });
         }
       }
+      return null;
+    }
 
-      function sampleCurve(code, params, count) {
-        const raw = [];
-        let maxAbs = 0.0001;
-        for (let i = 0; i < count; i++) {
-          const x = X_MIN + (i / (count - 1)) * (X_MAX - X_MIN);
-          let y;
-          try {
-            y = code.evaluate({ x, ...params });
-            if (typeof y !== 'number' || !isFinite(y)) y = null;
-          } catch {
-            y = null;
-          }
-          if (y !== null) maxAbs = Math.max(maxAbs, Math.abs(y));
-          raw.push({ x, y });
-        }
-        const scale = maxAbs > 0 ? 1 / maxAbs : 1;
-        return raw.map((r) => ({ x: r.x, y: r.y === null ? null : r.y * scale }));
+    function evalParametric(model, params, t) {
+      if (model.type === 'parametric') {
+        const x = evaluateCompiled(model.xExpr.code, { t, ...params });
+        const y = evaluateCompiled(model.yExpr.code, { t, ...params });
+        return x === null || y === null ? { x: t, y: null } : { x, y };
       }
-
-      function sampleCurveRange(code, params, count, xMin, xMax) {
-        const raw = [];
-        let maxAbs = 0.0001;
-        for (let i = 0; i < count; i++) {
-          const x = xMin + (i / (count - 1)) * (xMax - xMin);
-          let y;
-          try {
-            y = code.evaluate({ x, ...params });
-            if (typeof y !== 'number' || !isFinite(y)) y = null;
-          } catch {
-            y = null;
-          }
-          if (y !== null) maxAbs = Math.max(maxAbs, Math.abs(y));
-          raw.push({ x, y });
-        }
-        const scale = maxAbs > 0 ? 1 / maxAbs : 1;
-        return raw.map((r) => ({ x: r.x, y: r.y === null ? null : r.y * scale }));
+      if (model.type === 'polar') {
+        const r = evaluateCompiled(model.rExpr.code, { t, theta: t, ...params });
+        return r === null ? { x: t, y: null } : { x: r * Math.cos(t), y: r * Math.sin(t) };
       }
+      return { x: t, y: evalModelY(model, params, t) };
+    }
 
-      function getNiceTick(span) {
-        const normalized = span <= 0 ? 1 : span;
-        const exponent = Math.floor(Math.log10(normalized));
-        const fraction = normalized / Math.pow(10, exponent);
-        const niceFraction = fraction < 1.5 ? 1 : fraction < 3 ? 2 : fraction < 7 ? 5 : 10;
-        return niceFraction * Math.pow(10, exponent);
-      }
+    function hasCurveBreak(a, b, viewport) {
+      if (a.y === null || b.y === null) return true;
+      const dy = Math.abs(b.y - a.y);
+      const screenJump = dy / viewport.height;
+      if (screenJump > 1.4) return true;
+      return Math.sign(a.y) !== Math.sign(b.y) && dy > viewport.height * 0.75;
+    }
 
-      function getGridSteps(unitsPerPixel) {
-        const major = getNiceTick(unitsPerPixel * 110);
-        return { major, minor: major / 5 };
-      }
+    function adaptiveSampleCurve(code, params, viewport, w, h, progress = 1) {
+      if (!code || viewport.width <= 0 || !isFinite(viewport.width)) return [];
+      const yAt = (x) => code.type ? evalModelY(code, params, x) : evalY(code, params, x);
+      const visibleXMax = lerp(viewport.xMin, viewport.xMax, Math.max(0, Math.min(1, progress)));
+      const span = visibleXMax - viewport.xMin;
+      if (span <= 0) return [];
 
-      function formatTick(value) {
-        if (Math.abs(value) < 1e-12) return '0';
-        const abs = Math.abs(value);
-        if (abs >= 1e6 || abs < 1e-4) return value.toExponential(2).replace('+', '');
-        if (abs >= 1000) return value.toFixed(0);
-        if (abs >= 10) return value.toFixed(1).replace(/\.0$/, '');
-        if (abs >= 1) return value.toFixed(2).replace(/\.?0+$/, '');
-        const decimals = Math.min(8, Math.max(2, Math.ceil(-Math.log10(abs)) + 2));
-        return value.toFixed(decimals).replace(/\.?0+$/, '');
-      }
+      const baseSegments = Math.max(24, Math.min(900, Math.ceil(w / 28)));
+      const flatTolerancePx = 0.62;
+      const maxDepth = Math.max(5, Math.min(12, Math.round(9 - Math.log10(Math.max(viewport.width, 1e-9)))));
+      const points = [];
 
-      function clampCameraScale(scale) {
-        return Math.max(MIN_CAMERA_SCALE, Math.min(MAX_CAMERA_SCALE, scale));
-      }
-
-      function getInitialCamera(w, h) {
-        return { x: 0, y: 0, scale: Math.max(24 / Math.max(1, w), 6 / Math.max(1, h)) };
-      }
-
-      function getViewport(camera, w, h) {
-        const halfW = (w * camera.scale) / 2;
-        const halfH = (h * camera.scale) / 2;
-        return {
-          xMin: camera.x - halfW,
-          xMax: camera.x + halfW,
-          yMin: camera.y - halfH,
-          yMax: camera.y + halfH,
-          width: halfW * 2,
-          height: halfH * 2,
-        };
-      }
-
-      function worldToScreen(x, y, camera, w, h) {
-        return { x: (x - camera.x) / camera.scale + w / 2, y: h / 2 - (y - camera.y) / camera.scale };
-      }
-
-      function screenToWorld(x, y, camera, w, h) {
-        return { x: camera.x + (x - w / 2) * camera.scale, y: camera.y + (h / 2 - y) * camera.scale };
-      }
-
-      function evalY(code, params, x) {
-        try {
-          const y = code.evaluate({ x, ...params });
-          return typeof y === 'number' && isFinite(y) ? y : null;
-        } catch {
-          return null;
-        }
-      }
-
-      function hasCurveBreak(a, b, viewport) {
-        if (a.y === null || b.y === null) return true;
-        const dy = Math.abs(b.y - a.y);
-        const screenJump = dy / viewport.height;
-        if (screenJump > 1.4) return true;
-        return Math.sign(a.y) !== Math.sign(b.y) && dy > viewport.height * 0.75;
-      }
-
-      function adaptiveSampleCurve(code, params, viewport, w, h, progress = 1) {
-        if (!code || viewport.width <= 0 || !isFinite(viewport.width)) return [];
-        const visibleXMax = lerp(viewport.xMin, viewport.xMax, Math.max(0, Math.min(1, progress)));
-        const span = visibleXMax - viewport.xMin;
-        if (span <= 0) return [];
-
-        const baseSegments = Math.max(24, Math.min(900, Math.ceil(w / 28)));
-        const flatTolerancePx = 0.62;
-        const maxDepth = Math.max(5, Math.min(12, Math.round(9 - Math.log10(Math.max(viewport.width, 1e-9)))));
-        const points = [];
-
-        const toScreenPoint = (x, y) => worldToScreen(x, y, { x: (viewport.xMin + viewport.xMax) / 2, y: (viewport.yMin + viewport.yMax) / 2, scale: viewport.width / w }, w, h);
-        const pushPoint = (p) => {
-          if (!points.length || points[points.length - 1].x !== p.x || points[points.length - 1].y !== p.y) points.push(p);
-        };
-        const subdivide = (a, b, depth) => {
-          if (hasCurveBreak(a, b, viewport)) {
-            pushPoint(a);
-            pushPoint({ x: b.x, y: null });
-            return;
-          }
-          const midX = (a.x + b.x) / 2;
-          const midY = evalY(code, params, midX);
-          const mid = { x: midX, y: midY };
-          if (midY === null) {
-            pushPoint(a);
-            pushPoint({ x: midX, y: null });
-            return;
-          }
-
-          const sa = toScreenPoint(a.x, a.y);
-          const sb = toScreenPoint(b.x, b.y);
-          const sm = toScreenPoint(mid.x, mid.y);
-          const interpX = (sa.x + sb.x) / 2;
-          const interpY = (sa.y + sb.y) / 2;
-          const curvature = Math.hypot(sm.x - interpX, sm.y - interpY);
-          const longSegment = Math.hypot(sb.x - sa.x, sb.y - sa.y) > 44;
-          const needsMore = depth < maxDepth && (curvature > flatTolerancePx || longSegment);
-
-          if (needsMore) {
-            subdivide(a, mid, depth + 1);
-            subdivide(mid, b, depth + 1);
-          } else {
-            pushPoint(a);
-            pushPoint(b);
-          }
-        };
-
-        let prev = { x: viewport.xMin, y: evalY(code, params, viewport.xMin) };
-        for (let i = 1; i <= baseSegments; i++) {
-          const x = viewport.xMin + (i / baseSegments) * span;
-          const next = { x, y: evalY(code, params, x) };
-          subdivide(prev, next, 0);
-          prev = next;
-          if (points.length > 6000) break;
-        }
-        return points;
-      }
-
-      function drawBrokenPath(ctx, points, project) {
-        let drawing = false;
-        ctx.beginPath();
-        for (const p of points) {
-          if (p.y === null || !isFinite(p.x) || !isFinite(p.y)) {
-            drawing = false;
-            continue;
-          }
-          const s = project(p.x, p.y);
-          if (!drawing) {
-            ctx.moveTo(s.x, s.y);
-            drawing = true;
-          } else {
-            ctx.lineTo(s.x, s.y);
-          }
-        }
-      }
-
-      function roundedRectPath(ctx, x, y, w, h, r) {
-        if (ctx.roundRect) {
-          ctx.roundRect(x, y, w, h, r);
+      const toScreenPoint = (x, y) => worldToScreen(x, y, { x: (viewport.xMin + viewport.xMax) / 2, y: (viewport.yMin + viewport.yMax) / 2, scale: viewport.width / w }, w, h);
+      const pushPoint = (p) => {
+        if (!points.length || points[points.length - 1].x !== p.x || points[points.length - 1].y !== p.y) points.push(p);
+      };
+      const subdivide = (a, b, depth) => {
+        if (hasCurveBreak(a, b, viewport)) {
+          pushPoint(a);
+          pushPoint({ x: b.x, y: null });
           return;
         }
-        const radius = Math.min(r, w / 2, h / 2);
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + w - radius, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-        ctx.lineTo(x + w, y + h - radius);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-        ctx.lineTo(x + radius, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-      }
-
-      function finiteDerivative(code, params, x, unitsPerPixel) {
-        const dx = Math.max(Math.abs(x) * 1e-7, unitsPerPixel * 3, 1e-8);
-        const y1 = evalY(code, params, x - dx);
-        const y2 = evalY(code, params, x + dx);
-        if (y1 === null || y2 === null) return null;
-        const slope = (y2 - y1) / (2 * dx);
-        return isFinite(slope) ? slope : null;
-      }
-
-      function computeMarkers(pts) {
-        const markers = [];
-        for (let i = 1; i < pts.length - 1; i++) {
-          const prev = pts[i - 1];
-          const cur = pts[i];
-          const next = pts[i + 1];
-          if (prev.y === null || cur.y === null || next.y === null) continue;
-          const isPeak = cur.y > prev.y && cur.y > next.y;
-          const isValley = cur.y < prev.y && cur.y < next.y;
-          const isCross = prev.y * next.y < 0;
-          if (isPeak || isValley) markers.push({ x: cur.x, y: cur.y, type: isPeak ? 'peak' : 'valley' });
-          else if (isCross) markers.push({ x: cur.x, y: 0, type: 'zero' });
-          if (markers.length >= 5) break;
+        const midX = (a.x + b.x) / 2;
+        const midY = yAt(midX);
+        const mid = { x: midX, y: midY };
+        if (midY === null) {
+          pushPoint(a);
+          pushPoint({ x: midX, y: null });
+          return;
         }
-        return markers;
-      }
 
-      function smoothCurve(ctx, points) {
-        if (!points.length) return;
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length - 1; i++) {
-          const current = points[i];
-          const next = points[i + 1];
-          const xc = (current.x + next.x) / 2;
-          const yc = (current.y + next.y) / 2;
-          ctx.quadraticCurveTo(current.x, current.y, xc, yc);
+        const sa = toScreenPoint(a.x, a.y);
+        const sb = toScreenPoint(b.x, b.y);
+        const sm = toScreenPoint(mid.x, mid.y);
+        const interpX = (sa.x + sb.x) / 2;
+        const interpY = (sa.y + sb.y) / 2;
+        const curvature = Math.hypot(sm.x - interpX, sm.y - interpY);
+        const longSegment = Math.hypot(sb.x - sa.x, sb.y - sa.y) > 44;
+        const needsMore = depth < maxDepth && (curvature > flatTolerancePx || longSegment);
+
+        if (needsMore) {
+          subdivide(a, mid, depth + 1);
+          subdivide(mid, b, depth + 1);
+        } else {
+          pushPoint(a);
+          pushPoint(b);
         }
-        const last = points[points.length - 1];
-        ctx.lineTo(last.x, last.y);
+      };
+
+      let prev = { x: viewport.xMin, y: yAt(viewport.xMin) };
+      for (let i = 1; i <= baseSegments; i++) {
+        const x = viewport.xMin + (i / baseSegments) * span;
+        const next = { x, y: yAt(x) };
+        subdivide(prev, next, 0);
+        prev = next;
+        if (points.length > 6000) break;
       }
+      return points;
+    }
 
-      function midiToFreq(midi) {
-        return 440 * Math.pow(2, (midi - 69) / 12);
+    function sampleParametricModel(model, params, viewport, w, h, progress = 1) {
+      const tMin = params.__tMin ?? model.tMin ?? -Math.PI * 2;
+      const tMax = params.__tMax ?? model.tMax ?? Math.PI * 2;
+      const end = lerp(tMin, tMax, Math.max(0, Math.min(1, progress)));
+      const count = Math.max(180, Math.min(1800, Math.ceil((w + h) / 1.6)));
+      const pts = [];
+      let prev = null;
+      for (let i = 0; i <= count; i++) {
+        const t = tMin + ((end - tMin) * i) / count;
+        const p = evalParametric(model, params, t);
+        const breakIt = prev && p.y !== null && prev.y !== null && Math.hypot(p.x - prev.x, p.y - prev.y) > Math.max(viewport.width, viewport.height) * 0.5;
+        if (breakIt) pts.push({ x: p.x, y: null });
+        pts.push(p);
+        prev = p;
       }
+      return pts;
+    }
 
-      function valueToMidi(yNorm, scaleName, root) {
-        const steps = SCALES[scaleName];
-        const totalSteps = steps.length * 3;
-        const clamped = Math.max(-1, Math.min(1, yNorm ?? 0));
-        const idx = Math.round(((clamped + 1) / 2) * (totalSteps - 1));
-        const octave = Math.floor(idx / steps.length);
-        const degree = steps[((idx % steps.length) + steps.length) % steps.length];
-        return root + octave * 12 + degree;
-      }
-
-      let layerIdCounter = 1;
-      function makeLayer(overrides = {}) {
-        const id = layerIdCounter++;
-        return {
-          id,
-          name: `Layer ${id}`,
-          equationStr: 'A*sin(B*x+C)',
-          params: { A: 2, B: 1, C: 0 },
-          emotionKey: 'cosmic',
-          visible: true,
-          locked: false,
-          opacity: 1,
-          blend: 'normal',
-          bornAt: performance.now(),
-          ...overrides,
-        };
-      }
-
-      function buildSynth(instrument) {
-        switch (instrument) {
-          case 'ambient':
-            return new Tone.PolySynth(Tone.AMSynth, {
-              envelope: { attack: 0.6, decay: 0.3, sustain: 0.5, release: 2.2 },
-              volume: -10,
-            });
-          case 'cinematic':
-            return new Tone.PolySynth(Tone.FMSynth, {
-              envelope: { attack: 0.03, decay: 0.25, sustain: 0.4, release: 1.4 },
-              volume: -8,
-            });
-          case 'percussion':
-            return new Tone.PolySynth(Tone.MembraneSynth, {
-              envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.4 },
-              volume: -6,
-            });
-          case 'synth':
-          default:
-            return new Tone.PolySynth(Tone.Synth, {
-              oscillator: { type: 'triangle' },
-              envelope: { attack: 0.02, decay: 0.15, sustain: 0.25, release: 0.7 },
-              volume: -10,
-            });
-        }
-      }
-
-      function buildChain(emotionKey) {
-        const emotion = EMOTIONS[emotionKey];
-        const synth = buildSynth(emotion.audio.instrument);
-        const meter = new Tone.Meter({ smoothing: 0.6 });
-        let node = synth;
-        let delay = null;
-        let reverb = null;
-        if (emotion.audio.effects.includes('delay')) {
-          delay = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.25, wet: 0.22 });
-          node.connect(delay);
-          node = delay;
-        }
-        if (emotion.audio.effects.includes('reverb')) {
-          reverb = new Tone.Reverb({ decay: 3.2, wet: 0.32 });
-          node.connect(reverb);
-          node = reverb;
-        }
-        node.connect(meter);
-        node.toDestination();
-        return { synth, delay, reverb, meter, sequence: null, emotionKey };
-      }
-
-      function disposeChain(chain) {
-        if (!chain) return;
-        chain.sequence?.dispose();
-        chain.synth?.dispose();
-        chain.delay?.dispose();
-        chain.reverb?.dispose();
-        chain.meter?.dispose();
-      }
-
-      const Icon = ({ symbol, style }) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...style }}>
-          {symbol}
-        </span>
-      );
-
-      function EquationOrchestra() {
-        const [layers, setLayers] = useState(() => [makeLayer({ name: 'Layer 1' })]);
-        const [activeLayerId, setActiveLayerId] = useState(() => layers[0].id);
-        const [equationDraft, setEquationDraft] = useState(layers[0].equationStr);
-        const [playing, setPlaying] = useState(false);
-        const [tempo, setTempo] = useState(96);
-        const [volume, setVolume] = useState(0.75);
-        const [muted, setMuted] = useState(false);
-        const [panelMode, setPanelMode] = useState(null); // 'templates' | 'gallery'
-        const [showLayers, setShowLayers] = useState(true);
-        const [equationAnimating, setEquationAnimating] = useState(false);
-        const [fullscreen, setFullscreen] = useState(false);
-        const [showNavigator, setShowNavigator] = useState(true);
-        const [bookmarks, setBookmarks] = useState([]);
-
-        const containerRef = useRef(null);
-        const canvasRef = useRef(null);
-        const rafRef = useRef(null);
-        const particlesByLayerRef = useRef({});
-        const starsRef = useRef([]);
-        const levelsRef = useRef({});
-        const audioChainsRef = useRef({});
-        const cameraRef = useRef({ current: { x: 0, y: 0, scale: 0.03 }, target: { x: 0, y: 0, scale: 0.03 } });
-        const cameraHistoryRef = useRef({ undo: [], redo: [] });
-        const interactionRef = useRef({
-          pointers: new Map(),
-          dragging: false,
-          lastX: 0,
-          lastY: 0,
-          velocityX: 0,
-          velocityY: 0,
-          lastMoveAt: 0,
-          pinchStartDistance: 0,
-          pinchStartScale: 0,
-          pinchAnchor: null,
-          lastTapAt: 0,
-          cursor: null,
-          interactingUntil: 0,
-        });
-        const initialDrawRef = useRef({ start: performance.now(), active: true, duration: 2200 });
-
-        const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
-
-        useEffect(() => {
-          setEquationDraft(activeLayer.equationStr);
-        }, [activeLayerId]);
-
-        useEffect(() => {
-          if (!equationAnimating) return;
-          const timer = window.setTimeout(() => setEquationAnimating(false), 460);
-          return () => window.clearTimeout(timer);
-        }, [equationAnimating]);
-
-        const derivedLayers = useMemo(() => {
-          return layers.map((l) => {
-            const code = compileSafe(l.equationStr);
-            const detected = detectParameters(l.equationStr);
-            const visualPts = code ? sampleCurve(code, l.params, VISUAL_SAMPLES) : [];
-            const audioPts = code ? sampleCurve(code, l.params, AUDIO_STEPS) : [];
-            return { ...l, code, detected, visualPts, audioPts, valid: !!code };
-          });
-        }, [layers]);
-
-        const activeDerived = derivedLayers.find((l) => l.id === activeLayerId) || derivedLayers[0];
-        const primaryLayer = derivedLayers.find((l) => l.visible) || derivedLayers[0];
-        const primaryEmotion = EMOTIONS[primaryLayer?.emotionKey || 'cosmic'];
-
-        useEffect(() => {
-          initialDrawRef.current = { start: performance.now(), active: true, duration: 2200 };
-        }, [derivedLayers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}`).join('|')]);
-
-        const updateLayer = (id, patch) => {
-          setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
-        };
-        const editLayer = (id, patch) => {
-          setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch, bornAt: performance.now() } : l)));
-        };
-
-        const applyEquation = () => {
-          if (activeLayer.locked) return;
-          const eq = equationDraft.trim() || 'sin(x)';
-          editLayer(activeLayer.id, { equationStr: eq });
-          setEquationAnimating(true);
-        };
-
-        useEffect(() => {
-          setLayers((prev) =>
-            prev.map((l) => {
-              const detected = detectParameters(l.equationStr);
-              const next = {};
-              for (const k of detected) next[k] = l.params[k] !== undefined ? l.params[k] : 1;
-              const same = detected.length === Object.keys(l.params).length && detected.every((k) => k in l.params);
-              return same ? l : { ...l, params: next };
-            })
-          );
-        }, [layers.map((l) => l.equationStr).join('|')]);
-
-        const rebuildParticles = useCallback((layerId, emotionKey, w, h) => {
-          const emotion = EMOTIONS[emotionKey];
-          const count = Math.min(emotion.particles.density, 150);
-          const [minSize, maxSize] = emotion.particles.size;
-          const arr = [];
-          for (let i = 0; i < count; i++) {
-            arr.push({
-              x: Math.random() * w,
-              y: Math.random() * h,
-              seed: Math.random(),
-              speed: 0.3 + Math.random() * 0.8,
-              size: minSize + Math.random() * (maxSize - minSize),
-              vx: (Math.random() - 0.5) * 0.6,
-              vy: (Math.random() - 0.5) * 0.6,
-              life: Math.random() * 2,
-              maxLife: 1.2 + Math.random() * 1.2,
-              speedMag: 0.5 + Math.random() * 1.5,
-            });
+    function sampleAudioModel(model, params, count) {
+      if (!model?.valid) return [];
+      const pts = [];
+      if (model.type === 'implicit') {
+        const yMin = -6;
+        const yMax = 6;
+        const ySteps = 80;
+        let maxAbs = 0.0001;
+        for (let i = 0; i < count; i++) {
+          const x = X_MIN + (i / Math.max(1, count - 1)) * (X_MAX - X_MIN);
+          let prevY = yMin;
+          let prevV = evaluateCompiled(model.expr.code, { x, y: prevY, ...params });
+          let yHit = null;
+          for (let j = 1; j <= ySteps; j++) {
+            const y = yMin + (j / ySteps) * (yMax - yMin);
+            const v = evaluateCompiled(model.expr.code, { x, y, ...params });
+            if (prevV !== null && v !== null && (v === 0 || Math.sign(prevV) !== Math.sign(v))) {
+              const ratio = Math.abs(prevV) / (Math.abs(prevV) + Math.abs(v));
+              yHit = lerp(prevY, y, ratio);
+              break;
+            }
+            prevY = y;
+            prevV = v;
           }
-          particlesByLayerRef.current[layerId] = arr;
-        }, []);
+          if (yHit !== null) maxAbs = Math.max(maxAbs, Math.abs(yHit));
+          pts.push({ x, y: yHit, slope: 0, curvature: 0 });
+        }
+        return pts.map((p) => ({ ...p, y: p.y === null ? null : p.y / maxAbs }));
+      }
+      const tMin = model.type === 'parametric' || model.type === 'polar' ? (params.__tMin ?? model.tMin) : X_MIN;
+      const tMax = model.type === 'parametric' || model.type === 'polar' ? (params.__tMax ?? model.tMax) : X_MAX;
+      let maxAbs = 0.0001;
+      for (let i = 0; i < count; i++) {
+        const u = tMin + (i / Math.max(1, count - 1)) * (tMax - tMin);
+        const p = model.type === 'parametric' || model.type === 'polar'
+          ? evalParametric(model, params, u)
+          : { x: u, y: evalModelY(model, params, u) };
+        if (p.y !== null) maxAbs = Math.max(maxAbs, Math.abs(p.y));
+        const prev = i > 0 ? pts[i - 1] : null;
+        const slope = prev && prev.y !== null && p.y !== null && p.x !== prev.x ? (p.y - prev.y) / (p.x - prev.x) : 0;
+        pts.push({ ...p, slope, curvature: 0 });
+      }
+      for (let i = 1; i < pts.length - 1; i++) {
+        const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+        if (a.y === null || b.y === null || c.y === null) continue;
+        pts[i].curvature = (c.slope ?? 0) - (a.slope ?? 0);
+      }
+      return pts.map((p) => ({ ...p, y: p.y === null ? null : p.y / maxAbs }));
+    }
 
-        useEffect(() => {
-          const canvas = canvasRef.current;
-          const container = containerRef.current;
-          if (!canvas || !container) return;
+    function sampleImplicitSegments(model, params, viewport, w, h, progress = 1) {
+      if (!model?.valid || model.type !== 'implicit') return [];
+      const cols = Math.max(36, Math.min(130, Math.floor(w / 9)));
+      const rows = Math.max(28, Math.min(100, Math.floor(h / 9)));
+      const xMax = lerp(viewport.xMin, viewport.xMax, Math.max(0, Math.min(1, progress)));
+      const dx = (xMax - viewport.xMin) / cols;
+      const dy = viewport.height / rows;
+      const values = Array.from({ length: rows + 1 }, (_, j) =>
+        Array.from({ length: cols + 1 }, (_, i) => {
+          const x = viewport.xMin + i * dx;
+          const y = viewport.yMin + j * dy;
+          return evaluateCompiled(model.expr.code, { x, y, ...params });
+        })
+      );
+      const interp = (p1, p2, v1, v2) => {
+        const t = v1 === v2 ? 0.5 : Math.max(0, Math.min(1, Math.abs(v1) / (Math.abs(v1) + Math.abs(v2))));
+        return { x: lerp(p1.x, p2.x, t), y: lerp(p1.y, p2.y, t) };
+      };
+      const segments = [];
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const x0 = viewport.xMin + i * dx;
+          const y0 = viewport.yMin + j * dy;
+          const corners = [
+            { x: x0, y: y0, v: values[j][i] },
+            { x: x0 + dx, y: y0, v: values[j][i + 1] },
+            { x: x0 + dx, y: y0 + dy, v: values[j + 1][i + 1] },
+            { x: x0, y: y0 + dy, v: values[j + 1][i] },
+          ];
+          if (corners.some((c) => c.v === null)) continue;
+          const hits = [];
+          for (let e = 0; e < 4; e++) {
+            const a = corners[e];
+            const b = corners[(e + 1) % 4];
+            if (a.v === 0 || Math.sign(a.v) !== Math.sign(b.v)) hits.push(interp(a, b, a.v, b.v));
+          }
+          if (hits.length >= 2) {
+            segments.push([hits[0], hits[1]]);
+            if (hits.length === 4) segments.push([hits[2], hits[3]]);
+          }
+        }
+      }
+      return segments;
+    }
 
-          const resize = () => {
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
-            const w = container.clientWidth;
-            const h = container.clientHeight;
-            canvas.width = w * dpr;
-            canvas.height = h * dpr;
-            canvas.style.width = w + 'px';
-            canvas.style.height = h + 'px';
-            const ctx = canvas.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            if (!cameraRef.current.initialized) {
-              const initial = getInitialCamera(w, h);
-              cameraRef.current = { current: { ...initial }, target: { ...initial }, initialized: true };
+    function drawBrokenPath(ctx, points, project) {
+      let drawing = false;
+      ctx.beginPath();
+      for (const p of points) {
+        if (p.y === null || !isFinite(p.x) || !isFinite(p.y)) {
+          drawing = false;
+          continue;
+        }
+        const s = project(p.x, p.y);
+        if (!drawing) {
+          ctx.moveTo(s.x, s.y);
+          drawing = true;
+        } else {
+          ctx.lineTo(s.x, s.y);
+        }
+      }
+    }
+
+    function roundedRectPath(ctx, x, y, w, h, r) {
+      if (ctx.roundRect) {
+        ctx.roundRect(x, y, w, h, r);
+        return;
+      }
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+    }
+
+    function finiteDerivative(code, params, x, unitsPerPixel) {
+      const dx = Math.max(Math.abs(x) * 1e-7, unitsPerPixel * 3, 1e-8);
+      const y1 = code?.type ? evalModelY(code, params, x - dx) : evalY(code, params, x - dx);
+      const y2 = code?.type ? evalModelY(code, params, x + dx) : evalY(code, params, x + dx);
+      if (y1 === null || y2 === null) return null;
+      const slope = (y2 - y1) / (2 * dx);
+      return isFinite(slope) ? slope : null;
+    }
+
+    function computeMarkers(pts) {
+      const markers = [];
+      for (let i = 1; i < pts.length - 1; i++) {
+        const prev = pts[i - 1];
+        const cur = pts[i];
+        const next = pts[i + 1];
+        if (prev.y === null || cur.y === null || next.y === null) continue;
+        const isPeak = cur.y > prev.y && cur.y > next.y;
+        const isValley = cur.y < prev.y && cur.y < next.y;
+        const isCross = prev.y * next.y < 0;
+        if (isPeak || isValley) markers.push({ x: cur.x, y: cur.y, type: isPeak ? 'peak' : 'valley' });
+        else if (isCross) markers.push({ x: cur.x, y: 0, type: 'zero' });
+        if (markers.length >= 5) break;
+      }
+      return markers;
+    }
+
+    function smoothCurve(ctx, points) {
+      if (!points.length) return;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length - 1; i++) {
+        const current = points[i];
+        const next = points[i + 1];
+        const xc = (current.x + next.x) / 2;
+        const yc = (current.y + next.y) / 2;
+        ctx.quadraticCurveTo(current.x, current.y, xc, yc);
+      }
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, last.y);
+    }
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function valueToMidi(yNorm, scaleName, root) {
+      const steps = SCALES[scaleName];
+      const totalSteps = steps.length * 3;
+      const clamped = Math.max(-1, Math.min(1, yNorm ?? 0));
+      const idx = Math.round(((clamped + 1) / 2) * (totalSteps - 1));
+      const octave = Math.floor(idx / steps.length);
+      const degree = steps[((idx % steps.length) + steps.length) % steps.length];
+      return root + octave * 12 + degree;
+    }
+
+    let layerIdCounter = 1;
+    function makeLayer(overrides = {}) {
+      const id = layerIdCounter++;
+      return {
+        id,
+        name: `Layer ${id}`,
+        equationStr: 'A*sin(B*x+C)',
+        params: { A: 2, B: 1, C: 0 },
+        emotionKey: 'cosmic',
+        visible: true,
+        locked: false,
+        opacity: 1,
+        blend: 'normal',
+        bornAt: performance.now(),
+        ...overrides,
+      };
+    }
+
+    function buildSynth(instrument) {
+      switch (instrument) {
+        case 'ambient':
+          return new Tone.PolySynth(Tone.AMSynth, {
+            envelope: { attack: 0.6, decay: 0.3, sustain: 0.5, release: 2.2 },
+            volume: -10,
+          });
+        case 'cinematic':
+          return new Tone.PolySynth(Tone.FMSynth, {
+            envelope: { attack: 0.03, decay: 0.25, sustain: 0.4, release: 1.4 },
+            volume: -8,
+          });
+        case 'percussion':
+          return new Tone.PolySynth(Tone.MembraneSynth, {
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.4 },
+            volume: -6,
+          });
+        case 'synth':
+        default:
+          return new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.02, decay: 0.15, sustain: 0.25, release: 0.7 },
+            volume: -10,
+          });
+      }
+    }
+
+    function buildChain(emotionKey) {
+      const emotion = EMOTIONS[emotionKey];
+      const synth = buildSynth(emotion.audio.instrument);
+      const meter = new Tone.Meter({ smoothing: 0.6 });
+      let node = synth;
+      let delay = null;
+      let reverb = null;
+      if (emotion.audio.effects.includes('delay')) {
+        delay = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.25, wet: 0.22 });
+        node.connect(delay);
+        node = delay;
+      }
+      if (emotion.audio.effects.includes('reverb')) {
+        reverb = new Tone.Reverb({ decay: 3.2, wet: 0.32 });
+        node.connect(reverb);
+        node = reverb;
+      }
+      node.connect(meter);
+      node.toDestination();
+      return { synth, delay, reverb, meter, sequence: null, emotionKey };
+    }
+
+    function disposeChain(chain) {
+      if (!chain) return;
+      chain.sequence?.dispose();
+      chain.synth?.dispose();
+      chain.delay?.dispose();
+      chain.reverb?.dispose();
+      chain.meter?.dispose();
+    }
+
+    const Icon = ({ symbol, style }) => (
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...style }}>
+        {symbol}
+      </span>
+    );
+
+    function EquationOrchestra() {
+      const [layers, setLayers] = useState(() => [makeLayer({ name: 'Layer 1' })]);
+      const [activeLayerId, setActiveLayerId] = useState(() => layers[0].id);
+      const [equationDraft, setEquationDraft] = useState(layers[0].equationStr);
+      const [playing, setPlaying] = useState(false);
+      const [tempo, setTempo] = useState(96);
+      const [volume, setVolume] = useState(0.75);
+      const [muted, setMuted] = useState(false);
+      const [panelMode, setPanelMode] = useState(null); // 'templates' | 'gallery'
+      const [showLayers, setShowLayers] = useState(true);
+      const [equationAnimating, setEquationAnimating] = useState(false);
+      const [fullscreen, setFullscreen] = useState(false);
+      const [showNavigator, setShowNavigator] = useState(true);
+      const [bookmarks, setBookmarks] = useState([]);
+
+      const containerRef = useRef(null);
+      const canvasRef = useRef(null);
+      const rafRef = useRef(null);
+      const particlesByLayerRef = useRef({});
+      const starsRef = useRef([]);
+      const levelsRef = useRef({});
+      const audioChainsRef = useRef({});
+      const cameraRef = useRef({ current: { x: 0, y: 0, scale: 0.03 }, target: { x: 0, y: 0, scale: 0.03 } });
+      const cameraHistoryRef = useRef({ undo: [], redo: [] });
+      const interactionRef = useRef({
+        pointers: new Map(),
+        dragging: false,
+        lastX: 0,
+        lastY: 0,
+        velocityX: 0,
+        velocityY: 0,
+        lastMoveAt: 0,
+        pinchStartDistance: 0,
+        pinchStartScale: 0,
+        pinchAnchor: null,
+        lastTapAt: 0,
+        cursor: null,
+        interactingUntil: 0,
+      });
+      const initialDrawRef = useRef({ start: performance.now(), active: true, duration: 2200 });
+
+      const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
+
+      useEffect(() => {
+        setEquationDraft(activeLayer.equationStr);
+      }, [activeLayerId]);
+
+      useEffect(() => {
+        if (!equationAnimating) return;
+        const timer = window.setTimeout(() => setEquationAnimating(false), 460);
+        return () => window.clearTimeout(timer);
+      }, [equationAnimating]);
+
+      const derivedLayers = useMemo(() => {
+        return layers.map((l) => {
+          const model = makeMathModel(l.equationStr);
+          const detected = model.variables || [];
+          const audioPts = model.valid ? sampleAudioModel(model, l.params, AUDIO_STEPS) : [];
+          return { ...l, model, code: model.expr || model.xExpr || model.rExpr || null, detected, audioPts, valid: !!model.valid, error: model.error || '' };
+        });
+      }, [layers]);
+
+      const activeDerived = derivedLayers.find((l) => l.id === activeLayerId) || derivedLayers[0];
+      const primaryLayer = derivedLayers.find((l) => l.visible) || derivedLayers[0];
+      const primaryEmotion = EMOTIONS[primaryLayer?.emotionKey || 'cosmic'];
+      const draftModel = useMemo(() => makeMathModel(equationDraft), [equationDraft]);
+
+      useEffect(() => {
+        initialDrawRef.current = { start: performance.now(), active: true, duration: 2200 };
+      }, [derivedLayers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}`).join('|')]);
+
+      const updateLayer = (id, patch) => {
+        setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+      };
+      const editLayer = (id, patch) => {
+        setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch, bornAt: performance.now() } : l)));
+      };
+
+      const applyEquation = () => {
+        if (activeLayer.locked) return;
+        const eq = equationDraft.trim() || 'sin(x)';
+        editLayer(activeLayer.id, { equationStr: eq });
+        setEquationAnimating(true);
+      };
+
+      useEffect(() => {
+        setLayers((prev) =>
+          prev.map((l) => {
+            const model = makeMathModel(l.equationStr);
+            const detected = model.variables || [];
+            const next = {};
+            for (const k of detected) next[k] = l.params[k] !== undefined ? l.params[k] : 1;
+            if (model.type === 'parametric' || model.type === 'polar') {
+              next.__tMin = l.params.__tMin !== undefined ? l.params.__tMin : +(model.tMin ?? -Math.PI * 2).toFixed(2);
+              next.__tMax = l.params.__tMax !== undefined ? l.params.__tMax : +(model.tMax ?? Math.PI * 2).toFixed(2);
             }
+            const nextKeys = Object.keys(next);
+            const paramsSame = nextKeys.length === Object.keys(l.params).length && nextKeys.every((k) => k in l.params);
+            return paramsSame ? l : { ...l, params: next };
+          })
+        );
+      }, [layers.map((l) => l.equationStr).join('|')]);
 
-            starsRef.current = Array.from({ length: 90 }, () => ({
-              x: Math.random() * w,
-              y: Math.random() * h,
-              r: Math.random() * 1.3 + 0.2,
-              phase: Math.random() * Math.PI * 2,
-            }));
-            layers.forEach((l) => rebuildParticles(l.id, l.emotionKey, w, h));
-          };
-
-          resize();
-          const ro = new ResizeObserver(resize);
-          ro.observe(container);
-          return () => ro.disconnect();
-        }, [rebuildParticles, layers]);
-
-        const layerEmotionSignature = layers.map((l) => `${l.id}:${l.emotionKey}`).join('|');
-        useEffect(() => {
-          const container = containerRef.current;
-          if (!container) return;
-          const w = container.clientWidth;
-          const h = container.clientHeight;
-          if (!w || !h) return;
-          layers.forEach((l) => {
-            if (!particlesByLayerRef.current[l.id]) rebuildParticles(l.id, l.emotionKey, w, h);
+      const rebuildParticles = useCallback((layerId, emotionKey, w, h) => {
+        const emotion = EMOTIONS[emotionKey];
+        const count = Math.min(emotion.particles.density, 150);
+        const [minSize, maxSize] = emotion.particles.size;
+        const arr = [];
+        for (let i = 0; i < count; i++) {
+          arr.push({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            seed: Math.random(),
+            speed: 0.3 + Math.random() * 0.8,
+            size: minSize + Math.random() * (maxSize - minSize),
+            vx: (Math.random() - 0.5) * 0.6,
+            vy: (Math.random() - 0.5) * 0.6,
+            life: Math.random() * 2,
+            maxLife: 1.2 + Math.random() * 1.2,
+            speedMag: 0.5 + Math.random() * 1.5,
           });
-        }, [layerEmotionSignature, rebuildParticles, layers]);
+        }
+        particlesByLayerRef.current[layerId] = arr;
+      }, []);
 
-        const prevEmotionsRef = useRef({});
-        useEffect(() => {
-          const container = containerRef.current;
-          if (!container) return;
-          const w = container.clientWidth;
-          const h = container.clientHeight;
-          if (!w || !h) return;
-          layers.forEach((l) => {
-            if (prevEmotionsRef.current[l.id] !== l.emotionKey) {
-              rebuildParticles(l.id, l.emotionKey, w, h);
-              prevEmotionsRef.current[l.id] = l.emotionKey;
-            }
-          });
-          Object.keys(particlesByLayerRef.current).forEach((idStr) => {
-            const id = Number(idStr);
-            if (!layers.find((l) => l.id === id)) delete particlesByLayerRef.current[id];
-          });
-        }, [layerEmotionSignature, rebuildParticles, layers]);
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
 
-        const pushCameraHistory = useCallback(() => {
-          const cam = cameraRef.current.target;
-          const undo = cameraHistoryRef.current.undo;
-          const last = undo[undo.length - 1];
-          if (last && Math.hypot(last.x - cam.x, last.y - cam.y) < cam.scale * 2 && Math.abs(Math.log(last.scale / cam.scale)) < 0.02) return;
-          undo.push({ ...cam });
-          if (undo.length > 50) undo.shift();
-          cameraHistoryRef.current.redo = [];
-        }, []);
-
-        const setCameraTarget = useCallback((next, record = false) => {
-          if (record) pushCameraHistory();
-          const target = cameraRef.current.target;
-          cameraRef.current.target = {
-            x: Number.isFinite(next.x) ? next.x : target.x,
-            y: Number.isFinite(next.y) ? next.y : target.y,
-            scale: clampCameraScale(Number.isFinite(next.scale) ? next.scale : target.scale),
-          };
-        }, [pushCameraHistory]);
-
-        const resetCamera = useCallback((record = true) => {
-          const canvas = canvasRef.current;
-          if (!canvas) return;
+        const resize = () => {
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
-          setCameraTarget(getInitialCamera(canvas.width / dpr, canvas.height / dpr), record);
-        }, [setCameraTarget]);
+          const w = container.clientWidth;
+          const h = container.clientHeight;
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+          canvas.style.width = w + 'px';
+          canvas.style.height = h + 'px';
+          const ctx = canvas.getContext('2d');
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          if (!cameraRef.current.initialized) {
+            const initial = getInitialCamera(w, h);
+            cameraRef.current = { current: { ...initial }, target: { ...initial }, initialized: true };
+          }
 
-        const zoomAt = useCallback((screenX, screenY, factor, record = false) => {
-          const canvas = canvasRef.current;
-          if (!canvas) return;
+          starsRef.current = Array.from({ length: 90 }, () => ({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            r: Math.random() * 1.3 + 0.2,
+            phase: Math.random() * Math.PI * 2,
+          }));
+          layers.forEach((l) => rebuildParticles(l.id, l.emotionKey, w, h));
+        };
+
+        resize();
+        const ro = new ResizeObserver(resize);
+        ro.observe(container);
+        return () => ro.disconnect();
+      }, [rebuildParticles, layers]);
+
+      const layerEmotionSignature = layers.map((l) => `${l.id}:${l.emotionKey}`).join('|');
+      useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (!w || !h) return;
+        layers.forEach((l) => {
+          if (!particlesByLayerRef.current[l.id]) rebuildParticles(l.id, l.emotionKey, w, h);
+        });
+      }, [layerEmotionSignature, rebuildParticles, layers]);
+
+      const prevEmotionsRef = useRef({});
+      useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (!w || !h) return;
+        layers.forEach((l) => {
+          if (prevEmotionsRef.current[l.id] !== l.emotionKey) {
+            rebuildParticles(l.id, l.emotionKey, w, h);
+            prevEmotionsRef.current[l.id] = l.emotionKey;
+          }
+        });
+        Object.keys(particlesByLayerRef.current).forEach((idStr) => {
+          const id = Number(idStr);
+          if (!layers.find((l) => l.id === id)) delete particlesByLayerRef.current[id];
+        });
+      }, [layerEmotionSignature, rebuildParticles, layers]);
+
+      const pushCameraHistory = useCallback(() => {
+        const cam = cameraRef.current.target;
+        const undo = cameraHistoryRef.current.undo;
+        const last = undo[undo.length - 1];
+        if (last && Math.hypot(last.x - cam.x, last.y - cam.y) < cam.scale * 2 && Math.abs(Math.log(last.scale / cam.scale)) < 0.02) return;
+        undo.push({ ...cam });
+        if (undo.length > 50) undo.shift();
+        cameraHistoryRef.current.redo = [];
+      }, []);
+
+      const setCameraTarget = useCallback((next, record = false) => {
+        if (record) pushCameraHistory();
+        const target = cameraRef.current.target;
+        cameraRef.current.target = {
+          x: Number.isFinite(next.x) ? next.x : target.x,
+          y: Number.isFinite(next.y) ? next.y : target.y,
+          scale: clampCameraScale(Number.isFinite(next.scale) ? next.scale : target.scale),
+        };
+      }, [pushCameraHistory]);
+
+      const resetCamera = useCallback((record = true) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        setCameraTarget(getInitialCamera(canvas.width / dpr, canvas.height / dpr), record);
+      }, [setCameraTarget]);
+
+      const zoomAt = useCallback((screenX, screenY, factor, record = false) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = canvas.width / dpr;
+        const h = canvas.height / dpr;
+        const target = cameraRef.current.target;
+        const before = screenToWorld(screenX, screenY, target, w, h);
+        const nextScale = clampCameraScale(target.scale * factor);
+        setCameraTarget({
+          scale: nextScale,
+          x: before.x - (screenX - w / 2) * nextScale,
+          y: before.y - (h / 2 - screenY) * nextScale,
+        }, record);
+        interactionRef.current.interactingUntil = performance.now() + 900;
+      }, [setCameraTarget]);
+
+      const panByPixels = useCallback((dx, dy, record = false) => {
+        const target = cameraRef.current.target;
+        setCameraTarget({ ...target, x: target.x - dx * target.scale, y: target.y + dy * target.scale }, record);
+        interactionRef.current.interactingUntil = performance.now() + 700;
+      }, [setCameraTarget]);
+
+      const undoCamera = useCallback(() => {
+        const history = cameraHistoryRef.current;
+        const prev = history.undo.pop();
+        if (!prev) return;
+        history.redo.push({ ...cameraRef.current.target });
+        setCameraTarget(prev, false);
+      }, [setCameraTarget]);
+
+      const redoCamera = useCallback(() => {
+        const history = cameraHistoryRef.current;
+        const next = history.redo.pop();
+        if (!next) return;
+        history.undo.push({ ...cameraRef.current.target });
+        setCameraTarget(next, false);
+      }, [setCameraTarget]);
+
+      const shareViewport = useCallback(() => {
+        const cam = cameraRef.current.target;
+        const url = new URL(window.location.href);
+        url.searchParams.set('vx', cam.x.toPrecision(8));
+        url.searchParams.set('vy', cam.y.toPrecision(8));
+        url.searchParams.set('vs', cam.scale.toPrecision(8));
+        window.history.replaceState(null, '', url.toString());
+        navigator.clipboard?.writeText(url.toString()).catch(() => { });
+      }, []);
+
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const x = Number(params.get('vx'));
+        const y = Number(params.get('vy'));
+        const scale = Number(params.get('vs'));
+        if ([x, y, scale].every(Number.isFinite) && scale > 0) {
+          const next = { x, y, scale: clampCameraScale(scale) };
+          cameraRef.current.current = { ...next };
+          cameraRef.current.target = { ...next };
+          cameraRef.current.initialized = true;
+        }
+      }, []);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        canvas.style.touchAction = 'none';
+
+        const pointFor = (ev) => {
+          const rect = canvas.getBoundingClientRect();
+          return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+        };
+        const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+        const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+        const onWheel = (ev) => {
+          ev.preventDefault();
+          const p = pointFor(ev);
+          zoomAt(p.x, p.y, Math.exp(ev.deltaY * 0.0015), true);
+        };
+        const onPointerDown = (ev) => {
+          canvas.setPointerCapture?.(ev.pointerId);
+          const p = pointFor(ev);
+          const state = interactionRef.current;
+          state.pointers.set(ev.pointerId, p);
+          state.cursor = p;
+          state.interactingUntil = performance.now() + 900;
+          if (state.pointers.size === 1) {
+            const now = performance.now();
+            if (now - state.lastTapAt < 320) resetCamera(true);
+            state.lastTapAt = now;
+            state.dragging = true;
+            state.lastX = p.x;
+            state.lastY = p.y;
+            state.velocityX = 0;
+            state.velocityY = 0;
+            state.lastMoveAt = now;
+            pushCameraHistory();
+          } else if (state.pointers.size === 2) {
+            const pts = [...state.pointers.values()];
+            state.pinchStartDistance = Math.max(1, dist(pts[0], pts[1]));
+            state.pinchStartScale = cameraRef.current.target.scale;
+            state.pinchAnchor = mid(pts[0], pts[1]);
+            pushCameraHistory();
+          }
+        };
+        const onPointerMove = (ev) => {
+          const p = pointFor(ev);
+          const state = interactionRef.current;
+          state.cursor = p;
+          if (!state.pointers.has(ev.pointerId)) return;
+          state.pointers.set(ev.pointerId, p);
+          state.interactingUntil = performance.now() + 900;
+          if (state.pointers.size === 2) {
+            const pts = [...state.pointers.values()];
+            const m = mid(pts[0], pts[1]);
+            const nextDistance = Math.max(1, dist(pts[0], pts[1]));
+            const factor = (state.pinchStartDistance / nextDistance) * (state.pinchStartScale / cameraRef.current.target.scale);
+            const anchor = state.pinchAnchor || m;
+            zoomAt(anchor.x, anchor.y, factor, false);
+            panByPixels(m.x - anchor.x, m.y - anchor.y, false);
+            state.pinchAnchor = m;
+            return;
+          }
+          if (state.dragging) {
+            const now = performance.now();
+            const dt = Math.max(16, now - state.lastMoveAt);
+            const dx = p.x - state.lastX;
+            const dy = p.y - state.lastY;
+            panByPixels(dx, dy, false);
+            state.velocityX = dx / dt;
+            state.velocityY = dy / dt;
+            state.lastX = p.x;
+            state.lastY = p.y;
+            state.lastMoveAt = now;
+          }
+        };
+        const endPointer = (ev) => {
+          const state = interactionRef.current;
+          state.pointers.delete(ev.pointerId);
+          state.dragging = state.pointers.size > 0;
+          if (state.pointers.size < 2) state.pinchAnchor = null;
+        };
+        const onPointerLeave = () => {
+          interactionRef.current.cursor = null;
+        };
+        const onKeyDown = (ev) => {
+          const tag = document.activeElement?.tagName?.toLowerCase();
+          if (tag === 'input' || tag === 'textarea') return;
+          const cx = canvas.clientWidth / 2;
+          const cy = canvas.clientHeight / 2;
+          const step = ev.shiftKey ? 96 : 44;
+          if (ev.key === '+' || ev.key === '=') { ev.preventDefault(); zoomAt(cx, cy, 0.78, true); }
+          else if (ev.key === '-' || ev.key === '_') { ev.preventDefault(); zoomAt(cx, cy, 1.28, true); }
+          else if (ev.key === '0') { ev.preventDefault(); resetCamera(true); }
+          else if (ev.key === 'ArrowLeft') { ev.preventDefault(); panByPixels(step, 0, true); }
+          else if (ev.key === 'ArrowRight') { ev.preventDefault(); panByPixels(-step, 0, true); }
+          else if (ev.key === 'ArrowUp') { ev.preventDefault(); panByPixels(0, step, true); }
+          else if (ev.key === 'ArrowDown') { ev.preventDefault(); panByPixels(0, -step, true); }
+          else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? redoCamera() : undoCamera(); }
+          else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redoCamera(); }
+        };
+
+        canvas.addEventListener('wheel', onWheel, { passive: false });
+        canvas.addEventListener('pointerdown', onPointerDown);
+        canvas.addEventListener('pointermove', onPointerMove);
+        canvas.addEventListener('pointerup', endPointer);
+        canvas.addEventListener('pointercancel', endPointer);
+        canvas.addEventListener('pointerleave', onPointerLeave);
+        window.addEventListener('keydown', onKeyDown);
+        return () => {
+          canvas.removeEventListener('wheel', onWheel);
+          canvas.removeEventListener('pointerdown', onPointerDown);
+          canvas.removeEventListener('pointermove', onPointerMove);
+          canvas.removeEventListener('pointerup', endPointer);
+          canvas.removeEventListener('pointercancel', endPointer);
+          canvas.removeEventListener('pointerleave', onPointerLeave);
+          window.removeEventListener('keydown', onKeyDown);
+        };
+      }, [panByPixels, pushCameraHistory, redoCamera, resetCamera, undoCamera, zoomAt]);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const draw = (now) => {
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
           const w = canvas.width / dpr;
           const h = canvas.height / dpr;
-          const target = cameraRef.current.target;
-          const before = screenToWorld(screenX, screenY, target, w, h);
-          const nextScale = clampCameraScale(target.scale * factor);
-          setCameraTarget({
-            scale: nextScale,
-            x: before.x - (screenX - w / 2) * nextScale,
-            y: before.y - (h / 2 - screenY) * nextScale,
-          }, record);
-          interactionRef.current.interactingUntil = performance.now() + 900;
-        }, [setCameraTarget]);
 
-        const panByPixels = useCallback((dx, dy, record = false) => {
-          const target = cameraRef.current.target;
-          setCameraTarget({ ...target, x: target.x - dx * target.scale, y: target.y + dy * target.scale }, record);
-          interactionRef.current.interactingUntil = performance.now() + 700;
-        }, [setCameraTarget]);
-
-        const undoCamera = useCallback(() => {
-          const history = cameraHistoryRef.current;
-          const prev = history.undo.pop();
-          if (!prev) return;
-          history.redo.push({ ...cameraRef.current.target });
-          setCameraTarget(prev, false);
-        }, [setCameraTarget]);
-
-        const redoCamera = useCallback(() => {
-          const history = cameraHistoryRef.current;
-          const next = history.redo.pop();
-          if (!next) return;
-          history.undo.push({ ...cameraRef.current.target });
-          setCameraTarget(next, false);
-        }, [setCameraTarget]);
-
-        const shareViewport = useCallback(() => {
-          const cam = cameraRef.current.target;
-          const url = new URL(window.location.href);
-          url.searchParams.set('vx', cam.x.toPrecision(8));
-          url.searchParams.set('vy', cam.y.toPrecision(8));
-          url.searchParams.set('vs', cam.scale.toPrecision(8));
-          window.history.replaceState(null, '', url.toString());
-          navigator.clipboard?.writeText(url.toString()).catch(() => {});
-        }, []);
-
-        useEffect(() => {
-          const params = new URLSearchParams(window.location.search);
-          const x = Number(params.get('vx'));
-          const y = Number(params.get('vy'));
-          const scale = Number(params.get('vs'));
-          if ([x, y, scale].every(Number.isFinite) && scale > 0) {
-            const next = { x, y, scale: clampCameraScale(scale) };
-            cameraRef.current.current = { ...next };
-            cameraRef.current.target = { ...next };
-            cameraRef.current.initialized = true;
+          if (!cameraRef.current.initialized && w && h) {
+            const initial = getInitialCamera(w, h);
+            cameraRef.current = { ...cameraRef.current, current: { ...initial }, target: { ...initial }, initialized: true };
           }
-        }, []);
 
-        useEffect(() => {
-          const canvas = canvasRef.current;
-          if (!canvas) return;
-          canvas.style.touchAction = 'none';
+          const state = interactionRef.current;
+          if (!state.dragging && state.pointers.size === 0 && (Math.abs(state.velocityX) > 0.002 || Math.abs(state.velocityY) > 0.002)) {
+            panByPixels(state.velocityX * 16, state.velocityY * 16, false);
+            state.velocityX *= 0.92;
+            state.velocityY *= 0.92;
+          }
 
-          const pointFor = (ev) => {
-            const rect = canvas.getBoundingClientRect();
-            return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
-          };
-          const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-          const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+          const current = cameraRef.current.current;
+          const target = cameraRef.current.target;
+          current.x += (target.x - current.x) * 0.15;
+          current.y += (target.y - current.y) * 0.15;
+          current.scale += (target.scale - current.scale) * 0.15;
+          current.scale = clampCameraScale(current.scale);
+          const viewport = getViewport(current, w, h);
+          const project = (x, y) => worldToScreen(x, y, current, w, h);
 
-          const onWheel = (ev) => {
-            ev.preventDefault();
-            const p = pointFor(ev);
-            zoomAt(p.x, p.y, Math.exp(ev.deltaY * 0.0015), true);
-          };
-          const onPointerDown = (ev) => {
-            canvas.setPointerCapture?.(ev.pointerId);
-            const p = pointFor(ev);
-            const state = interactionRef.current;
-            state.pointers.set(ev.pointerId, p);
-            state.cursor = p;
-            state.interactingUntil = performance.now() + 900;
-            if (state.pointers.size === 1) {
-              const now = performance.now();
-              if (now - state.lastTapAt < 320) resetCamera(true);
-              state.lastTapAt = now;
-              state.dragging = true;
-              state.lastX = p.x;
-              state.lastY = p.y;
-              state.velocityX = 0;
-              state.velocityY = 0;
-              state.lastMoveAt = now;
-              pushCameraHistory();
-            } else if (state.pointers.size === 2) {
-              const pts = [...state.pointers.values()];
-              state.pinchStartDistance = Math.max(1, dist(pts[0], pts[1]));
-              state.pinchStartScale = cameraRef.current.target.scale;
-              state.pinchAnchor = mid(pts[0], pts[1]);
-              pushCameraHistory();
-            }
-          };
-          const onPointerMove = (ev) => {
-            const p = pointFor(ev);
-            const state = interactionRef.current;
-            state.cursor = p;
-            if (!state.pointers.has(ev.pointerId)) return;
-            state.pointers.set(ev.pointerId, p);
-            state.interactingUntil = performance.now() + 900;
-            if (state.pointers.size === 2) {
-              const pts = [...state.pointers.values()];
-              const m = mid(pts[0], pts[1]);
-              const nextDistance = Math.max(1, dist(pts[0], pts[1]));
-              const factor = (state.pinchStartDistance / nextDistance) * (state.pinchStartScale / cameraRef.current.target.scale);
-              const anchor = state.pinchAnchor || m;
-              zoomAt(anchor.x, anchor.y, factor, false);
-              panByPixels(m.x - anchor.x, m.y - anchor.y, false);
-              state.pinchAnchor = m;
-              return;
-            }
-            if (state.dragging) {
-              const now = performance.now();
-              const dt = Math.max(16, now - state.lastMoveAt);
-              const dx = p.x - state.lastX;
-              const dy = p.y - state.lastY;
-              panByPixels(dx, dy, false);
-              state.velocityX = dx / dt;
-              state.velocityY = dy / dt;
-              state.lastX = p.x;
-              state.lastY = p.y;
-              state.lastMoveAt = now;
-            }
-          };
-          const endPointer = (ev) => {
-            const state = interactionRef.current;
-            state.pointers.delete(ev.pointerId);
-            state.dragging = state.pointers.size > 0;
-            if (state.pointers.size < 2) state.pinchAnchor = null;
-          };
-          const onPointerLeave = () => {
-            interactionRef.current.cursor = null;
-          };
-          const onKeyDown = (ev) => {
-            const tag = document.activeElement?.tagName?.toLowerCase();
-            if (tag === 'input' || tag === 'textarea') return;
-            const cx = canvas.clientWidth / 2;
-            const cy = canvas.clientHeight / 2;
-            const step = ev.shiftKey ? 96 : 44;
-            if (ev.key === '+' || ev.key === '=') { ev.preventDefault(); zoomAt(cx, cy, 0.78, true); }
-            else if (ev.key === '-' || ev.key === '_') { ev.preventDefault(); zoomAt(cx, cy, 1.28, true); }
-            else if (ev.key === '0') { ev.preventDefault(); resetCamera(true); }
-            else if (ev.key === 'ArrowLeft') { ev.preventDefault(); panByPixels(step, 0, true); }
-            else if (ev.key === 'ArrowRight') { ev.preventDefault(); panByPixels(-step, 0, true); }
-            else if (ev.key === 'ArrowUp') { ev.preventDefault(); panByPixels(0, step, true); }
-            else if (ev.key === 'ArrowDown') { ev.preventDefault(); panByPixels(0, -step, true); }
-            else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? redoCamera() : undoCamera(); }
-            else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redoCamera(); }
-          };
+          ctx.clearRect(0, 0, w, h);
+          ctx.fillStyle = '#0B0B0D';
+          ctx.fillRect(0, 0, w, h);
+          ctx.imageSmoothingEnabled = true;
 
-          canvas.addEventListener('wheel', onWheel, { passive: false });
-          canvas.addEventListener('pointerdown', onPointerDown);
-          canvas.addEventListener('pointermove', onPointerMove);
-          canvas.addEventListener('pointerup', endPointer);
-          canvas.addEventListener('pointercancel', endPointer);
-          canvas.addEventListener('pointerleave', onPointerLeave);
-          window.addEventListener('keydown', onKeyDown);
-          return () => {
-            canvas.removeEventListener('wheel', onWheel);
-            canvas.removeEventListener('pointerdown', onPointerDown);
-            canvas.removeEventListener('pointermove', onPointerMove);
-            canvas.removeEventListener('pointerup', endPointer);
-            canvas.removeEventListener('pointercancel', endPointer);
-            canvas.removeEventListener('pointerleave', onPointerLeave);
-            window.removeEventListener('keydown', onKeyDown);
-          };
-        }, [panByPixels, pushCameraHistory, redoCamera, resetCamera, undoCamera, zoomAt]);
+          const gridX = getGridSteps(current.scale);
+          const gridY = getGridSteps(current.scale);
+          const gridFade = Math.max(0.45, Math.min(1, 100 / Math.max(60, gridX.major / current.scale)));
 
-        useEffect(() => {
-          const canvas = canvasRef.current;
-          if (!canvas) return;
-          const ctx = canvas.getContext('2d');
-
-          const draw = (now) => {
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
-            const w = canvas.width / dpr;
-            const h = canvas.height / dpr;
-
-            if (!cameraRef.current.initialized && w && h) {
-              const initial = getInitialCamera(w, h);
-              cameraRef.current = { ...cameraRef.current, current: { ...initial }, target: { ...initial }, initialized: true };
-            }
-
-            const state = interactionRef.current;
-            if (!state.dragging && state.pointers.size === 0 && (Math.abs(state.velocityX) > 0.002 || Math.abs(state.velocityY) > 0.002)) {
-              panByPixels(state.velocityX * 16, state.velocityY * 16, false);
-              state.velocityX *= 0.92;
-              state.velocityY *= 0.92;
-            }
-
-            const current = cameraRef.current.current;
-            const target = cameraRef.current.target;
-            current.x += (target.x - current.x) * 0.15;
-            current.y += (target.y - current.y) * 0.15;
-            current.scale += (target.scale - current.scale) * 0.15;
-            current.scale = clampCameraScale(current.scale);
-            const viewport = getViewport(current, w, h);
-            const project = (x, y) => worldToScreen(x, y, current, w, h);
-
-            ctx.clearRect(0, 0, w, h);
-            ctx.fillStyle = '#0B0B0D';
-            ctx.fillRect(0, 0, w, h);
-            ctx.imageSmoothingEnabled = true;
-
-            const gridX = getGridSteps(current.scale);
-            const gridY = getGridSteps(current.scale);
-            const gridFade = Math.max(0.45, Math.min(1, 100 / Math.max(60, gridX.major / current.scale)));
-
-            ctx.lineWidth = 1;
-            for (let x = Math.floor(viewport.xMin / gridX.minor) * gridX.minor; x <= viewport.xMax + gridX.minor; x += gridX.minor) {
-              const sx = project(x, 0).x;
-              if (sx < -2 || sx > w + 2) continue;
-              const isMajor = Math.abs(x / gridX.major - Math.round(x / gridX.major)) < 1e-6;
-              ctx.strokeStyle = isMajor ? `rgba(255,255,255,${0.20 * gridFade})` : `rgba(255,255,255,${0.08 * gridFade})`;
-              ctx.beginPath();
-              ctx.moveTo(sx, 0);
-              ctx.lineTo(sx, h);
-              ctx.stroke();
-            }
-            for (let y = Math.floor(viewport.yMin / gridY.minor) * gridY.minor; y <= viewport.yMax + gridY.minor; y += gridY.minor) {
-              const sy = project(0, y).y;
-              if (sy < -2 || sy > h + 2) continue;
-              const isMajor = Math.abs(y / gridY.major - Math.round(y / gridY.major)) < 1e-6;
-              ctx.strokeStyle = isMajor ? `rgba(255,255,255,${0.20 * gridFade})` : `rgba(255,255,255,${0.08 * gridFade})`;
-              ctx.beginPath();
-              ctx.moveTo(0, sy);
-              ctx.lineTo(w, sy);
-              ctx.stroke();
-            }
-
-            ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-            ctx.lineWidth = 1.3;
+          ctx.lineWidth = 1;
+          for (let x = Math.floor(viewport.xMin / gridX.minor) * gridX.minor; x <= viewport.xMax + gridX.minor; x += gridX.minor) {
+            const sx = project(x, 0).x;
+            if (sx < -2 || sx > w + 2) continue;
+            const isMajor = Math.abs(x / gridX.major - Math.round(x / gridX.major)) < 1e-6;
+            ctx.strokeStyle = isMajor ? `rgba(255,255,255,${0.20 * gridFade})` : `rgba(255,255,255,${0.08 * gridFade})`;
             ctx.beginPath();
-            if (viewport.yMin < 0 && viewport.yMax > 0) {
-              const sy = project(0, 0).y;
-              ctx.moveTo(0, sy);
-              ctx.lineTo(w, sy);
-            }
-            if (viewport.xMin < 0 && viewport.xMax > 0) {
-              const sx = project(0, 0).x;
-              ctx.moveTo(sx, 0);
-              ctx.lineTo(sx, h);
-            }
+            ctx.moveTo(sx, 0);
+            ctx.lineTo(sx, h);
             ctx.stroke();
+          }
+          for (let y = Math.floor(viewport.yMin / gridY.minor) * gridY.minor; y <= viewport.yMax + gridY.minor; y += gridY.minor) {
+            const sy = project(0, y).y;
+            if (sy < -2 || sy > h + 2) continue;
+            const isMajor = Math.abs(y / gridY.major - Math.round(y / gridY.major)) < 1e-6;
+            ctx.strokeStyle = isMajor ? `rgba(255,255,255,${0.20 * gridFade})` : `rgba(255,255,255,${0.08 * gridFade})`;
+            ctx.beginPath();
+            ctx.moveTo(0, sy);
+            ctx.lineTo(w, sy);
+            ctx.stroke();
+          }
 
-            ctx.fillStyle = 'rgba(255,255,255,0.74)';
-            ctx.font = '11px JetBrains Mono, monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            let lastLabelX = -Infinity;
-            const xAxisY = Math.max(8, Math.min(h - 22, project(0, 0).y + 8));
-            for (let x = Math.floor(viewport.xMin / gridX.major) * gridX.major; x <= viewport.xMax + gridX.major; x += gridX.major) {
-              const sx = project(x, 0).x;
-              const label = formatTick(x);
-              const labelW = ctx.measureText(label).width + 18;
-              if (sx < 8 || sx > w - 8 || sx - lastLabelX < labelW) continue;
-              ctx.fillText(label, sx, xAxisY);
-              lastLabelX = sx;
-            }
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
-            let lastLabelY = -Infinity;
-            const yAxisX = Math.max(56, Math.min(w - 10, project(0, 0).x - 10));
-            for (let y = Math.floor(viewport.yMin / gridY.major) * gridY.major; y <= viewport.yMax + gridY.major; y += gridY.major) {
-              const sy = project(0, y).y;
-              if (sy < 12 || sy > h - 12 || Math.abs(sy - lastLabelY) < 18) continue;
-              ctx.fillText(formatTick(y), yAxisX, sy);
-              lastLabelY = sy;
-            }
+          ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          if (viewport.yMin < 0 && viewport.yMax > 0) {
+            const sy = project(0, 0).y;
+            ctx.moveTo(0, sy);
+            ctx.lineTo(w, sy);
+          }
+          if (viewport.xMin < 0 && viewport.xMax > 0) {
+            const sx = project(0, 0).x;
+            ctx.moveTo(sx, 0);
+            ctx.lineTo(sx, h);
+          }
+          ctx.stroke();
 
-            const initialDraw = initialDrawRef.current.active
-              ? easeInOutCubic(Math.min(1, (now - initialDrawRef.current.start) / initialDrawRef.current.duration))
-              : 1;
-            if (initialDrawRef.current.active && initialDraw >= 1) {
-              initialDrawRef.current.active = false;
-            }
+          ctx.fillStyle = 'rgba(255,255,255,0.74)';
+          ctx.font = '11px JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          let lastLabelX = -Infinity;
+          const xAxisY = Math.max(8, Math.min(h - 22, project(0, 0).y + 8));
+          for (let x = Math.floor(viewport.xMin / gridX.major) * gridX.major; x <= viewport.xMax + gridX.major; x += gridX.major) {
+            const sx = project(x, 0).x;
+            const label = formatTick(x);
+            const labelW = ctx.measureText(label).width + 18;
+            if (sx < 8 || sx > w - 8 || sx - lastLabelX < labelW) continue;
+            ctx.fillText(label, sx, xAxisY);
+            lastLabelX = sx;
+          }
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          let lastLabelY = -Infinity;
+          const yAxisX = Math.max(56, Math.min(w - 10, project(0, 0).x - 10));
+          for (let y = Math.floor(viewport.yMin / gridY.major) * gridY.major; y <= viewport.yMax + gridY.major; y += gridY.major) {
+            const sy = project(0, y).y;
+            if (sy < 12 || sy > h - 12 || Math.abs(sy - lastLabelY) < 18) continue;
+            ctx.fillText(formatTick(y), yAxisX, sy);
+            lastLabelY = sy;
+          }
 
-            ctx.save();
-            for (const layer of derivedLayers) {
-              if (!layer.visible || !layer.valid) continue;
-              const emotion = EMOTIONS[layer.emotionKey];
-              const graphColor = emotion.colors.graph[0];
-              const glowColor = emotion.colors.glow;
-              const pts = adaptiveSampleCurve(layer.code, layer.params, viewport, w, h, initialDraw);
-              const finitePts = pts.filter((p) => p.y !== null);
-              if (finitePts.length < 2) continue;
+          const initialDraw = initialDrawRef.current.active
+            ? easeInOutCubic(Math.min(1, (now - initialDrawRef.current.start) / initialDrawRef.current.duration))
+            : 1;
+          if (initialDrawRef.current.active && initialDraw >= 1) {
+            initialDrawRef.current.active = false;
+          }
 
+          ctx.save();
+          for (const layer of derivedLayers) {
+            if (!layer.visible || !layer.valid) continue;
+            const emotion = EMOTIONS[layer.emotionKey];
+            const graphColor = emotion.colors.graph[0];
+            const glowColor = emotion.colors.glow;
+            if (layer.model.type === 'implicit') {
+              const segments = sampleImplicitSegments(layer.model, layer.params, viewport, w, h, initialDraw);
+              if (!segments.length) continue;
               ctx.globalCompositeOperation = layer.blend === 'lighten' ? 'lighter' : 'source-over';
               ctx.lineJoin = 'round';
               ctx.lineCap = 'round';
-
               ctx.strokeStyle = glowColor;
-              ctx.lineWidth = 9;
-              ctx.globalAlpha = 0.12 * layer.opacity;
+              ctx.lineWidth = 8;
+              ctx.globalAlpha = 0.1 * layer.opacity;
               ctx.shadowColor = glowColor;
-              ctx.shadowBlur = 18;
-              drawBrokenPath(ctx, pts, project);
+              ctx.shadowBlur = 16;
+              ctx.beginPath();
+              for (const [a, b] of segments) {
+                const pa = project(a.x, a.y);
+                const pb = project(b.x, b.y);
+                ctx.moveTo(pa.x, pa.y);
+                ctx.lineTo(pb.x, pb.y);
+              }
               ctx.stroke();
-
               ctx.strokeStyle = graphColor;
-              ctx.lineWidth = 2.8;
-              ctx.globalAlpha = 0.78 * layer.opacity;
-              ctx.shadowColor = glowColor;
-              ctx.shadowBlur = 9;
-              drawBrokenPath(ctx, pts, project);
+              ctx.lineWidth = 2.4;
+              ctx.globalAlpha = 0.76 * layer.opacity;
+              ctx.shadowBlur = 7;
+              ctx.beginPath();
+              for (const [a, b] of segments) {
+                const pa = project(a.x, a.y);
+                const pb = project(b.x, b.y);
+                ctx.moveTo(pa.x, pa.y);
+                ctx.lineTo(pb.x, pb.y);
+              }
               ctx.stroke();
               ctx.shadowBlur = 0;
-
-              if (initialDrawRef.current.active) {
-                const fadeStart = 0.9;
-                const penAlpha = initialDraw >= fadeStart ? Math.max(0, 1 - (initialDraw - fadeStart) / (1 - fadeStart)) : 1;
-                const headPoint = finitePts[finitePts.length - 1];
-                if (headPoint) {
-                  const head = project(headPoint.x, headPoint.y);
-                  ctx.save();
-                  ctx.shadowColor = graphColor;
-                  ctx.shadowBlur = 16 * penAlpha;
-                  ctx.globalAlpha = penAlpha;
-                  ctx.fillStyle = `rgba(255,255,255,${0.95 * penAlpha})`;
-                  ctx.beginPath();
-                  ctx.arc(head.x, head.y, 7 * penAlpha, 0, Math.PI * 2);
-                  ctx.fill();
-                  ctx.restore();
-                }
-              }
-
-              if (!initialDrawRef.current.active) {
-                const markers = computeMarkers(pts);
-                ctx.fillStyle = '#0B0B0D';
-                ctx.strokeStyle = graphColor;
-                ctx.lineWidth = 1.5;
-                ctx.globalAlpha = 0.9 * layer.opacity;
-                for (const marker of markers) {
-                  const m = project(marker.x, marker.y);
-                  if (m.x < -8 || m.x > w + 8 || m.y < -8 || m.y > h + 8) continue;
-                  ctx.beginPath();
-                  ctx.arc(m.x, m.y, 4, 0, Math.PI * 2);
-                  ctx.fill();
-                  ctx.stroke();
-                }
-              }
+              continue;
             }
-            ctx.restore();
 
-            const cursor = state.cursor;
-            const active = derivedLayers.find((l) => l.id === activeLayerId && l.valid && l.visible);
-            if (cursor && active) {
-              const world = screenToWorld(cursor.x, cursor.y, current, w, h);
-              const y = evalY(active.code, active.params, world.x);
-              if (y !== null) {
-                const p = project(world.x, y);
-                const slope = finiteDerivative(active.code, active.params, world.x, current.scale);
+            const pts = layer.model.type === 'parametric' || layer.model.type === 'polar'
+              ? sampleParametricModel(layer.model, layer.params, viewport, w, h, initialDraw)
+              : adaptiveSampleCurve(layer.model, layer.params, viewport, w, h, initialDraw);
+            const finitePts = pts.filter((p) => p.y !== null);
+            if (finitePts.length < 2) continue;
+
+            ctx.globalCompositeOperation = layer.blend === 'lighten' ? 'lighter' : 'source-over';
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            ctx.strokeStyle = glowColor;
+            ctx.lineWidth = 9;
+            ctx.globalAlpha = 0.12 * layer.opacity;
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = 18;
+            drawBrokenPath(ctx, pts, project);
+            ctx.stroke();
+
+            ctx.strokeStyle = graphColor;
+            ctx.lineWidth = 2.8;
+            ctx.globalAlpha = 0.78 * layer.opacity;
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = 9;
+            drawBrokenPath(ctx, pts, project);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            if (initialDrawRef.current.active) {
+              const fadeStart = 0.9;
+              const penAlpha = initialDraw >= fadeStart ? Math.max(0, 1 - (initialDraw - fadeStart) / (1 - fadeStart)) : 1;
+              const headPoint = finitePts[finitePts.length - 1];
+              if (headPoint) {
+                const head = project(headPoint.x, headPoint.y);
                 ctx.save();
-                ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([4, 5]);
+                ctx.shadowColor = graphColor;
+                ctx.shadowBlur = 16 * penAlpha;
+                ctx.globalAlpha = penAlpha;
+                ctx.fillStyle = `rgba(255,255,255,${0.95 * penAlpha})`;
                 ctx.beginPath();
-                ctx.moveTo(cursor.x, 0);
-                ctx.lineTo(cursor.x, h);
-                ctx.moveTo(0, cursor.y);
-                ctx.lineTo(w, cursor.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.shadowColor = primaryEmotion.colors.glow;
-                ctx.shadowBlur = 12;
-                ctx.fillStyle = '#0B0B0D';
-                ctx.strokeStyle = primaryEmotion.colors.graph[0];
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.arc(head.x, head.y, 7 * penAlpha, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-                const label = `(${formatTick(world.x)}, ${formatTick(y)})  m=${slope === null ? 'undef' : formatTick(slope)}`;
-                ctx.font = '11px JetBrains Mono, monospace';
-                const labelW = ctx.measureText(label).width + 18;
-                const lx = Math.min(w - labelW - 12, Math.max(12, cursor.x + 14));
-                const ly = Math.min(h - 34, Math.max(12, cursor.y - 28));
-                ctx.fillStyle = 'rgba(12,12,18,0.78)';
-                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-                ctx.beginPath();
-                roundedRectPath(ctx, lx, ly, labelW, 24, 8);
-                ctx.fill();
-                ctx.stroke();
-                ctx.fillStyle = 'rgba(245,243,239,0.92)';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(label, lx + 9, ly + 12);
                 ctx.restore();
               }
             }
 
-            if (showNavigator) {
-              const navW = 154;
-              const navH = 92;
-              const nx = w - navW - 16;
-              const ny = h - navH - 86;
-              ctx.save();
-              ctx.fillStyle = 'rgba(12,12,18,0.58)';
-              ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-              ctx.lineWidth = 1;
-              ctx.beginPath();
-              roundedRectPath(ctx, nx, ny, navW, navH, 8);
-              ctx.fill();
-              ctx.stroke();
-              const navXMin = -12;
-              const navXMax = 12;
-              const navYMin = -3;
-              const navYMax = 3;
-              const mapX = (x) => nx + ((x - navXMin) / (navXMax - navXMin)) * navW;
-              const mapY = (y) => ny + navH - ((y - navYMin) / (navYMax - navYMin)) * navH;
-              const navLayer = derivedLayers.find((l) => l.visible && l.valid);
-              if (navLayer) {
-                const navPts = sampleCurveRange(navLayer.code, navLayer.params, 140, navXMin, navXMax).filter((p) => p.y !== null);
-                ctx.strokeStyle = `${primaryEmotion.colors.graph[0]}aa`;
-                ctx.lineWidth = 1.3;
-                smoothCurve(ctx, navPts.map((p) => ({ x: mapX(p.x), y: mapY(p.y * 2.4) })));
+            if (!initialDrawRef.current.active) {
+              const markers = computeMarkers(pts);
+              ctx.fillStyle = '#0B0B0D';
+              ctx.strokeStyle = graphColor;
+              ctx.lineWidth = 1.5;
+              ctx.globalAlpha = 0.9 * layer.opacity;
+              for (const marker of markers) {
+                const m = project(marker.x, marker.y);
+                if (m.x < -8 || m.x > w + 8 || m.y < -8 || m.y > h + 8) continue;
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, 4, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.stroke();
               }
-              const vx1 = mapX(Math.max(navXMin, viewport.xMin));
-              const vx2 = mapX(Math.min(navXMax, viewport.xMax));
-              const vy1 = mapY(Math.min(navYMax, viewport.yMax));
-              const vy2 = mapY(Math.max(navYMin, viewport.yMin));
-              ctx.strokeStyle = 'rgba(255,255,255,0.72)';
-              ctx.strokeRect(Math.min(vx1, vx2), Math.min(vy1, vy2), Math.max(4, Math.abs(vx2 - vx1)), Math.max(4, Math.abs(vy2 - vy1)));
-              ctx.restore();
             }
+          }
+          ctx.restore();
 
-            if (now < state.interactingUntil) {
-              const zoomPct = Math.round((getInitialCamera(w, h).scale / current.scale) * 100);
-              const info = `${zoomPct}%   x ${formatTick(viewport.xMin)}..${formatTick(viewport.xMax)}   y ${formatTick(viewport.yMin)}..${formatTick(viewport.yMax)}`;
+          const cursor = state.cursor;
+          const active = derivedLayers.find((l) => l.id === activeLayerId && l.valid && l.visible);
+          if (cursor && active && (active.model.type === 'explicit' || active.model.type === 'piecewise')) {
+            const world = screenToWorld(cursor.x, cursor.y, current, w, h);
+            const y = evalModelY(active.model, active.params, world.x);
+            if (y !== null) {
+              const p = project(world.x, y);
+              const slope = finiteDerivative(active.model, active.params, world.x, current.scale);
               ctx.save();
-              ctx.font = '11px JetBrains Mono, monospace';
-              const infoW = ctx.measureText(info).width + 20;
-              ctx.fillStyle = 'rgba(12,12,18,0.68)';
-              ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+              ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+              ctx.lineWidth = 1;
+              ctx.setLineDash([4, 5]);
               ctx.beginPath();
-              roundedRectPath(ctx, 16, h - 132, infoW, 26, 8);
+              ctx.moveTo(cursor.x, 0);
+              ctx.lineTo(cursor.x, h);
+              ctx.moveTo(0, cursor.y);
+              ctx.lineTo(w, cursor.y);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.shadowColor = primaryEmotion.colors.glow;
+              ctx.shadowBlur = 12;
+              ctx.fillStyle = '#0B0B0D';
+              ctx.strokeStyle = primaryEmotion.colors.graph[0];
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
               ctx.fill();
               ctx.stroke();
-              ctx.fillStyle = 'rgba(245,243,239,0.88)';
+              ctx.shadowBlur = 0;
+              const label = `(${formatTick(world.x)}, ${formatTick(y)})  m=${slope === null ? 'undef' : formatTick(slope)}`;
+              ctx.font = '11px JetBrains Mono, monospace';
+              const labelW = ctx.measureText(label).width + 18;
+              const lx = Math.min(w - labelW - 12, Math.max(12, cursor.x + 14));
+              const ly = Math.min(h - 34, Math.max(12, cursor.y - 28));
+              ctx.fillStyle = 'rgba(12,12,18,0.78)';
+              ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+              ctx.beginPath();
+              roundedRectPath(ctx, lx, ly, labelW, 24, 8);
+              ctx.fill();
+              ctx.stroke();
+              ctx.fillStyle = 'rgba(245,243,239,0.92)';
               ctx.textAlign = 'left';
               ctx.textBaseline = 'middle';
-              ctx.fillText(info, 26, h - 119);
+              ctx.fillText(label, lx + 9, ly + 12);
               ctx.restore();
             }
+          }
 
-            const vignette = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.24, w / 2, h / 2, Math.max(w, h) * 0.8);
-            vignette.addColorStop(0, 'rgba(11,11,13,0)');
-            vignette.addColorStop(1, 'rgba(11,11,13,0.55)');
-            ctx.fillStyle = vignette;
-            ctx.fillRect(0, 0, w, h);
+          if (showNavigator) {
+            const navW = 154;
+            const navH = 92;
+            const nx = w - navW - 16;
+            const ny = h - navH - 86;
+            ctx.save();
+            ctx.fillStyle = 'rgba(12,12,18,0.58)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            roundedRectPath(ctx, nx, ny, navW, navH, 8);
+            ctx.fill();
+            ctx.stroke();
+            const navXMin = -12;
+            const navXMax = 12;
+            const navYMin = -3;
+            const navYMax = 3;
+            const mapX = (x) => nx + ((x - navXMin) / (navXMax - navXMin)) * navW;
+            const mapY = (y) => ny + navH - ((y - navYMin) / (navYMax - navYMin)) * navH;
+            const navLayer = derivedLayers.find((l) => l.visible && l.valid);
+            if (navLayer) {
+              const navViewport = { xMin: navXMin, xMax: navXMax, yMin: navYMin, yMax: navYMax, width: navXMax - navXMin, height: navYMax - navYMin };
+              const navPts = navLayer.model.type === 'parametric' || navLayer.model.type === 'polar'
+                ? sampleParametricModel(navLayer.model, navLayer.params, navViewport, navW, navH, 1).filter((p) => p.y !== null)
+                : navLayer.model.type === 'implicit'
+                  ? []
+                  : adaptiveSampleCurve(navLayer.model, navLayer.params, navViewport, navW, navH, 1).filter((p) => p.y !== null);
+              ctx.strokeStyle = `${primaryEmotion.colors.graph[0]}aa`;
+              ctx.lineWidth = 1.3;
+              if (navPts.length > 1) {
+                smoothCurve(ctx, navPts.map((p) => ({ x: mapX(p.x), y: mapY(p.y) })));
+                ctx.stroke();
+              }
+            }
+            const vx1 = mapX(Math.max(navXMin, viewport.xMin));
+            const vx2 = mapX(Math.min(navXMax, viewport.xMax));
+            const vy1 = mapY(Math.min(navYMax, viewport.yMax));
+            const vy2 = mapY(Math.max(navYMin, viewport.yMin));
+            ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+            ctx.strokeRect(Math.min(vx1, vx2), Math.min(vy1, vy2), Math.max(4, Math.abs(vx2 - vx1)), Math.max(4, Math.abs(vy2 - vy1)));
+            ctx.restore();
+          }
 
-            rafRef.current = requestAnimationFrame(draw);
-          };
+          if (now < state.interactingUntil) {
+            const zoomPct = Math.round((getInitialCamera(w, h).scale / current.scale) * 100);
+            const info = `${zoomPct}%   x ${formatTick(viewport.xMin)}..${formatTick(viewport.xMax)}   y ${formatTick(viewport.yMin)}..${formatTick(viewport.yMax)}`;
+            ctx.save();
+            ctx.font = '11px JetBrains Mono, monospace';
+            const infoW = ctx.measureText(info).width + 20;
+            ctx.fillStyle = 'rgba(12,12,18,0.68)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.beginPath();
+            roundedRectPath(ctx, 16, h - 132, infoW, 26, 8);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(245,243,239,0.88)';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(info, 26, h - 119);
+            ctx.restore();
+          }
+
+          const vignette = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.24, w / 2, h / 2, Math.max(w, h) * 0.8);
+          vignette.addColorStop(0, 'rgba(11,11,13,0)');
+          vignette.addColorStop(1, 'rgba(11,11,13,0.55)');
+          ctx.fillStyle = vignette;
+          ctx.fillRect(0, 0, w, h);
 
           rafRef.current = requestAnimationFrame(draw);
-          return () => cancelAnimationFrame(rafRef.current);
-        }, [activeLayerId, derivedLayers, panByPixels, primaryEmotion, showNavigator]);
+        };
 
-        useEffect(() => {
-          const chains = audioChainsRef.current;
-          const currentIds = new Set(layers.map((l) => l.id));
+        rafRef.current = requestAnimationFrame(draw);
+        return () => cancelAnimationFrame(rafRef.current);
+      }, [activeLayerId, derivedLayers, panByPixels, primaryEmotion, showNavigator]);
 
-          Object.keys(chains).forEach((idStr) => {
-            const id = Number(idStr);
-            if (!currentIds.has(id)) {
-              disposeChain(chains[id]);
-              delete chains[id];
-            }
-          });
+      useEffect(() => {
+        const chains = audioChainsRef.current;
+        const currentIds = new Set(layers.map((l) => l.id));
 
-          layers.forEach((l) => {
-            const existing = chains[l.id];
-            if (!existing || existing.emotionKey !== l.emotionKey) {
-              if (existing) disposeChain(existing);
-              chains[l.id] = buildChain(l.emotionKey);
-            }
-          });
+        Object.keys(chains).forEach((idStr) => {
+          const id = Number(idStr);
+          if (!currentIds.has(id)) {
+            disposeChain(chains[id]);
+            delete chains[id];
+          }
+        });
 
-          Tone.Destination.volume.value = muted ? -Infinity : Tone.gainToDb(volume);
-        }, [layerEmotionSignature, layers, muted, volume]);
+        layers.forEach((l) => {
+          const existing = chains[l.id];
+          if (!existing || existing.emotionKey !== l.emotionKey) {
+            if (existing) disposeChain(existing);
+            chains[l.id] = buildChain(l.emotionKey);
+          }
+        });
 
-        useEffect(() => {
-          return () => {
-            Object.values(audioChainsRef.current).forEach(disposeChain);
-            audioChainsRef.current = {};
-          };
-        }, []);
+        Tone.Destination.volume.value = muted ? -Infinity : Tone.gainToDb(volume);
+      }, [layerEmotionSignature, layers, muted, volume]);
 
-        useEffect(() => {
-          Tone.Destination.volume.value = muted ? -Infinity : Tone.gainToDb(volume);
-        }, [volume, muted]);
+      useEffect(() => {
+        return () => {
+          Object.values(audioChainsRef.current).forEach(disposeChain);
+          audioChainsRef.current = {};
+        };
+      }, []);
 
-        useEffect(() => {
+      useEffect(() => {
+        Tone.Destination.volume.value = muted ? -Infinity : Tone.gainToDb(volume);
+      }, [volume, muted]);
+
+      useEffect(() => {
+        Tone.Transport.bpm.value = tempo;
+      }, [tempo]);
+
+      const startAllSequences = useCallback(() => {
+        const chains = audioChainsRef.current;
+        derivedLayers.forEach((layer) => {
+          const chain = chains[layer.id];
+          if (!chain || !layer.valid || !layer.audioPts.length) return;
+          chain.sequence?.dispose();
+          chain.sequence = null;
+          const emotion = EMOTIONS[layer.emotionKey];
+          const indices = layer.audioPts.map((_, i) => i);
+          const seq = new Tone.Sequence(
+            (time, i) => {
+              const pt = layer.audioPts[i];
+              if (!pt || pt.y === null) return;
+              const midi = valueToMidi(pt.y, emotion.audio.scale, emotion.root);
+              const velocity = Math.max(0.25, Math.min(0.95, 0.48 + Math.abs(pt.slope || 0) * 0.08));
+              const duration = Math.abs(pt.curvature || 0) > 0.8 ? '16n' : '8n';
+              chain.synth.triggerAttackRelease(midiToFreq(midi), duration, time, velocity);
+            },
+            indices,
+            '8n'
+          );
+          seq.start(0);
+          chain.sequence = seq;
+        });
+      }, [derivedLayers]);
+
+      useEffect(() => {
+        if (!playing) return;
+        startAllSequences();
+      }, [layers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}:${l.emotionKey}`).join('|'), playing, startAllSequences]);
+
+      const togglePlay = useCallback(async () => {
+        await Tone.start();
+        if (playing) {
+          Tone.Transport.stop();
+          Tone.Transport.cancel();
+          Object.values(audioChainsRef.current).forEach((c) => { c.sequence?.dispose(); c.sequence = null; });
+          setPlaying(false);
+        } else {
           Tone.Transport.bpm.value = tempo;
-        }, [tempo]);
-
-        const startAllSequences = useCallback(() => {
-          const chains = audioChainsRef.current;
-          derivedLayers.forEach((layer) => {
-            const chain = chains[layer.id];
-            if (!chain || !layer.valid || !layer.audioPts.length) return;
-            chain.sequence?.dispose();
-            chain.sequence = null;
-            const emotion = EMOTIONS[layer.emotionKey];
-            const indices = layer.audioPts.map((_, i) => i);
-            const seq = new Tone.Sequence(
-              (time, i) => {
-                const pt = layer.audioPts[i];
-                if (!pt || pt.y === null) return;
-                const midi = valueToMidi(pt.y, emotion.audio.scale, emotion.root);
-                chain.synth.triggerAttackRelease(midiToFreq(midi), '8n', time);
-              },
-              indices,
-              '8n'
-            );
-            seq.start(0);
-            chain.sequence = seq;
-          });
-        }, [derivedLayers]);
-
-        useEffect(() => {
-          if (!playing) return;
           startAllSequences();
-        }, [layers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}:${l.emotionKey}`).join('|'), playing, startAllSequences]);
+          Tone.Transport.start();
+          setPlaying(true);
+        }
+      }, [playing, tempo, startAllSequences]);
 
-        const togglePlay = useCallback(async () => {
-          await Tone.start();
-          if (playing) {
-            Tone.Transport.stop();
-            Tone.Transport.cancel();
-            Object.values(audioChainsRef.current).forEach((c) => { c.sequence?.dispose(); c.sequence = null; });
-            setPlaying(false);
-          } else {
-            Tone.Transport.bpm.value = tempo;
-            startAllSequences();
-            Tone.Transport.start();
-            setPlaying(true);
+      const toggleFullscreen = useCallback(() => {
+        const el = containerRef.current;
+        if (!document.fullscreenElement) { el?.requestFullscreen?.then(() => setFullscreen(true)).catch(() => { }); }
+        else { document.exitFullscreen?.(); }
+      }, []);
+
+      useEffect(() => {
+        const onChange = () => setFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', onChange);
+        return () => document.removeEventListener('fullscreenchange', onChange);
+      }, []);
+
+      const addLayer = () => {
+        if (layers.length >= MAX_LAYERS) return;
+        const usedEmotions = new Set(layers.map((l) => l.emotionKey));
+        const nextEmotion = EMOTION_KEYS.find((k) => !usedEmotions.has(k)) || EMOTION_KEYS[layers.length % EMOTION_KEYS.length];
+        const nl = makeLayer({ name: `Layer ${layers.length + 1}`, emotionKey: nextEmotion, opacity: 0.85 });
+        setLayers((prev) => [...prev, nl]);
+        setActiveLayerId(nl.id);
+      };
+
+      const removeLayer = (id) => {
+        if (layers.length <= 1) return;
+        setLayers((prev) => prev.filter((l) => l.id !== id));
+        if (activeLayerId === id) {
+          const remaining = layers.filter((l) => l.id !== id);
+          setActiveLayerId(remaining[0]?.id);
+        }
+      };
+
+      const moveLayer = (id, dir) => {
+        setLayers((prev) => {
+          const idx = prev.findIndex((l) => l.id === id);
+          const swapIdx = idx + dir;
+          if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+          const next = [...prev];
+          [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+          return next;
+        });
+      };
+
+      const randomizeParams = () => {
+        if (activeLayer.locked) return;
+        setLayers((prev) => prev.map((l) => {
+          if (l.id !== activeLayerId) return l;
+          const next = { ...l.params };
+          for (const k of Object.keys(next)) {
+            if (k.startsWith('__')) continue;
+            next[k] = +(Math.random() * 8 - 4).toFixed(2);
           }
-        }, [playing, tempo, startAllSequences]);
+          return { ...l, params: next };
+        }));
+      };
 
-        const toggleFullscreen = useCallback(() => {
-          const el = containerRef.current;
-          if (!document.fullscreenElement) { el?.requestFullscreen?.then(() => setFullscreen(true)).catch(() => {}); }
-          else { document.exitFullscreen?.(); }
-        }, []);
-
-        useEffect(() => {
-          const onChange = () => setFullscreen(!!document.fullscreenElement);
-          document.addEventListener('fullscreenchange', onChange);
-          return () => document.removeEventListener('fullscreenchange', onChange);
-        }, []);
-
-        const addLayer = () => {
-          if (layers.length >= MAX_LAYERS) return;
-          const usedEmotions = new Set(layers.map((l) => l.emotionKey));
-          const nextEmotion = EMOTION_KEYS.find((k) => !usedEmotions.has(k)) || EMOTION_KEYS[layers.length % EMOTION_KEYS.length];
-          const nl = makeLayer({ name: `Layer ${layers.length + 1}`, emotionKey: nextEmotion, opacity: 0.85 });
-          setLayers((prev) => [...prev, nl]);
-          setActiveLayerId(nl.id);
-        };
-
-        const removeLayer = (id) => {
-          if (layers.length <= 1) return;
-          setLayers((prev) => prev.filter((l) => l.id !== id));
-          if (activeLayerId === id) {
-            const remaining = layers.filter((l) => l.id !== id);
-            setActiveLayerId(remaining[0]?.id);
+      const resetParams = () => {
+        if (activeLayer.locked) return;
+        setLayers((prev) => prev.map((l) => {
+          if (l.id !== activeLayerId) return l;
+          const next = {};
+          for (const k of Object.keys(l.params)) {
+            if (k === '__tMin') next[k] = -Math.PI * 2;
+            else if (k === '__tMax') next[k] = Math.PI * 2;
+            else next[k] = 1;
           }
-        };
+          return { ...l, params: next };
+        }));
+      };
 
-        const moveLayer = (id, dir) => {
-          setLayers((prev) => {
-            const idx = prev.findIndex((l) => l.id === id);
-            const swapIdx = idx + dir;
-            if (swapIdx < 0 || swapIdx >= prev.length) return prev;
-            const next = [...prev];
-            [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
-            return next;
-          });
-        };
+      const loadPreset = (preset) => {
+        layerIdCounter = 1;
+        const nl = makeLayer({ name: 'Layer 1', equationStr: preset.eq, params: preset.params, emotionKey: preset.emotion });
+        setLayers([nl]);
+        setActiveLayerId(nl.id);
+        setEquationDraft(preset.eq);
+        setPanelMode(null);
+        initialDrawRef.current = { start: performance.now(), active: true, duration: 2200 };
+      };
 
-        const randomizeParams = () => {
-          if (activeLayer.locked) return;
-          setLayers((prev) => prev.map((l) => {
-            if (l.id !== activeLayerId) return l;
-            const next = { ...l.params };
-            for (const k of Object.keys(next)) next[k] = +(Math.random() * 8 - 4).toFixed(2);
-            return { ...l, params: next };
-          }));
-        };
+      const exportPNG = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = 'equation-orchestra-scene.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      };
 
-        const resetParams = () => {
-          if (activeLayer.locked) return;
-          setLayers((prev) => prev.map((l) => {
-            if (l.id !== activeLayerId) return l;
-            const next = {};
-            for (const k of Object.keys(l.params)) next[k] = 1;
-            return { ...l, params: next };
-          }));
-        };
+      const saveBookmark = () => {
+        const cam = cameraRef.current.target;
+        setBookmarks((prev) => [{ ...cam, label: `View ${prev.length + 1}` }, ...prev].slice(0, 5));
+      };
 
-        const loadPreset = (preset) => {
-          layerIdCounter = 1;
-          const nl = makeLayer({ name: 'Layer 1', equationStr: preset.eq, params: preset.params, emotionKey: preset.emotion });
-          setLayers([nl]);
-          setActiveLayerId(nl.id);
-          setEquationDraft(preset.eq);
-          setPanelMode(null);
-          initialDrawRef.current = { start: performance.now(), active: true, duration: 2200 };
-        };
+      const activeEmotion = EMOTIONS[activeLayer.emotionKey];
 
-        const exportPNG = () => {
-          const canvas = canvasRef.current;
-          if (!canvas) return;
-          const link = document.createElement('a');
-          link.download = 'equation-orchestra-scene.png';
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-        };
+      return (
+        <div style={{ fontFamily: "'Inter', sans-serif", minHeight: '100vh', background: '#0B0B0D', color: '#F5F3EF' }}>
+          <div
+            ref={containerRef}
+            style={{
+              position: 'relative', width: '100%', minHeight: '100vh', overflow: 'hidden', background: '#0B0B0D',
+            }}
+          >
+            <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, display: 'block' }} />
 
-        const saveBookmark = () => {
-          const cam = cameraRef.current.target;
-          setBookmarks((prev) => [{ ...cam, label: `View ${prev.length + 1}` }, ...prev].slice(0, 5));
-        };
-
-        const activeEmotion = EMOTIONS[activeLayer.emotionKey];
-
-        return (
-          <div style={{ fontFamily: "'Inter', sans-serif", minHeight: '100vh', background: '#0B0B0D', color: '#F5F3EF' }}>
-            <div
-              ref={containerRef}
-              style={{
-                position: 'relative', width: '100%', minHeight: '100vh', overflow: 'hidden', background: '#0B0B0D',
-              }}
-            >
-              <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, display: 'block' }} />
-
-              <div style={{
-                position: 'absolute', top: 20, left: 16, right: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between',
+            <div style={{
+              position: 'absolute', top: 20, left: 16, right: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between',
+            }}>
+              <div className={equationAnimating ? 'eq-animation' : ''} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)',
+                border: `1px solid ${activeLayer.locked ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 12, padding: '8px 10px', flex: '1 1 240px', minWidth: 200,
               }}>
-                <div className={equationAnimating ? 'eq-animation' : ''} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)',
-                  border: `1px solid ${activeLayer.locked ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`,
-                  borderRadius: 12, padding: '8px 10px', flex: '1 1 240px', minWidth: 200,
-                }}>
-                  <Icon symbol='✨' style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <input
-                        value={equationDraft}
-                        disabled={activeLayer.locked}
-                        onChange={(e) => setEquationDraft(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && applyEquation()}
-                        onBlur={applyEquation}
-                        spellCheck={false}
-                        style={{
-                          background: 'transparent', border: 'none', outline: 'none',
-                          color: activeLayer.locked ? '#66626f' : '#F5F3EF',
-                          fontFamily: "'JetBrains Mono', monospace", fontSize: 14, width: '100%', letterSpacing: 0.2,
-                        }}
-                        placeholder='A*sin(B*x+C)'
-                      />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#8a8698', fontSize: 11, whiteSpace: 'nowrap' }}>
-                        <span>editing</span>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F5F3EF', fontWeight: 600 }}>{activeLayer.name}</span>
-                      </div>
-                    </div>
-                    {!activeDerived.valid && (
-                      <span style={{ fontSize: 10.5, color: '#ff8b93', flexShrink: 0 }}>invalid</span>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button className='eo-btn' onClick={togglePlay} style={{
-                    minWidth: 48, height: 48, borderRadius: 999, border: 'none', cursor: 'pointer',
-                    background: primaryEmotion.colors.glow, color: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: `0 0 16px ${primaryEmotion.colors.glow}88`,
-                  }} aria-label={playing ? 'Pause' : 'Play'}>
-                    <Icon symbol={playing ? '❚❚' : '►'} style={{ fontSize: 16, marginLeft: playing ? 0 : 2 }} />
-                  </button>
-                  <button className='eo-btn' onClick={() => setPanelMode(panelMode === 'templates' ? null : 'templates')} style={{
-                    background: panelMode === 'templates' ? 'rgba(255,255,255,0.12)' : 'rgba(12,12,18,0.6)',
-                    backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 12, padding: '9px 12px', color: '#cfcbd8', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                  }} aria-label='Show templates'>
-                    <span style={{ marginRight: 5 }}>📐</span>Templates
-                  </button>
-                  <button className='eo-btn' onClick={toggleFullscreen} style={{
-                    background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 12, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cfcbd8', cursor: 'pointer',
-                  }} aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
-                    <Icon symbol={fullscreen ? '⛶' : '⛶'} />
-                  </button>
-                </div>
-              </div>
-
-              {panelMode && (
-                <div className='eo-fade-in' style={{
-                  position: 'absolute', top: 80, left: 16, right: 16, zIndex: 15,
-                  background: 'rgba(12,12,18,0.85)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 14, padding: 14,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <button onClick={() => setPanelMode('templates')} style={{
-                        background: panelMode === 'templates' ? 'rgba(255,255,255,0.12)' : 'transparent',
-                        border: 'none', color: '#F5F3EF', fontSize: 13, cursor: 'pointer', padding: '8px 12px', borderRadius: 10,
-                      }}>Equation</button>
-                      <button onClick={() => setPanelMode('gallery')} style={{
-                        background: panelMode === 'gallery' ? 'rgba(255,255,255,0.12)' : 'transparent',
-                        border: 'none', color: '#F5F3EF', fontSize: 13, cursor: 'pointer', padding: '8px 12px', borderRadius: 10,
-                      }}>Gallery</button>
-                    </div>
-                    <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={() => setPanelMode(null)}>✕</span>
-                  </div>
-
-                  {panelMode === 'templates' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
-                      {TEMPLATES.map((item) => (
-                        <div key={item.label} onClick={() => {
-                          if (!activeLayer.locked) {
-                            editLayer(activeLayer.id, { equationStr: item.eq });
-                            setEquationDraft(item.eq);
-                            setPanelMode(null);
-                          }
-                        }} className='eo-btn' style={{
-                          cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
-                          background: 'rgba(255,255,255,0.03)', padding: '16px 14px', minHeight: 120,
-                        }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 10 }}>{item.label}</div>
-                          <div style={{ fontSize: 12, color: '#cfcbd8', lineHeight: 1.5, fontFamily: "'JetBrains Mono', monospace" }}>{item.eq}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {panelMode === 'gallery' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
-                      {EMOTION_KEYS.map((key) => {
-                        const emotion = EMOTIONS[key];
-                        return (
-                          <div key={key} onClick={() => {
-                            if (!activeLayer.locked) {
-                              editLayer(activeLayer.id, { emotionKey: key });
-                              setPanelMode(null);
-                            }
-                          }} className='eo-btn' style={{
-                            cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
-                            background: `linear-gradient(135deg, ${emotion.colors.bg[0]}, ${emotion.colors.bg[2]})`, padding: '18px 14px', minHeight: 120,
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                              <div>
-                                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{emotion.label}</div>
-                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>Mood card</div>
-                              </div>
-                              <div style={{ width: 12, height: 12, borderRadius: '50%', background: emotion.colors.glow, boxShadow: `0 0 10px ${emotion.colors.glow}77` }} />
-                            </div>
-                            <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>Tap to apply this mood to the active layer and update the graph styling.</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div style={{
-                position: 'absolute', top: 80, right: 16, bottom: 90, display: 'flex', flexDirection: 'column',
-                gap: 7, overflowY: 'auto', paddingRight: 2, width: 118,
-              }}>
-                {EMOTION_KEYS.map((key) => {
-                  const e = EMOTIONS[key];
-                  const selected = key === activeLayer.emotionKey;
-                  return (
-                    <div key={key}
-                      onClick={() => !activeLayer.locked && editLayer(activeLayer.id, { emotionKey: key })}
-                      className='eo-btn'
+                <Icon symbol='✨' style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <input
+                      value={equationDraft}
+                      disabled={activeLayer.locked}
+                      onChange={(e) => setEquationDraft(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && applyEquation()}
+                      onBlur={applyEquation}
+                      spellCheck={false}
                       style={{
-                        cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 10, padding: '8px 10px',
-                        background: selected ? 'rgba(255,255,255,0.1)' : 'rgba(12,12,18,0.55)', backdropFilter: 'blur(10px)',
-                        border: selected ? `1px solid ${e.colors.glow}` : '1px solid rgba(255,255,255,0.08)',
-                        display: 'flex', alignItems: 'center', gap: 8, opacity: activeLayer.locked ? 0.5 : 1,
+                        background: 'transparent', border: 'none', outline: 'none',
+                        color: activeLayer.locked ? '#66626f' : '#F5F3EF',
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: 14, width: '100%', letterSpacing: 0.2,
                       }}
-                    >
-                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.colors.glow, flexShrink: 0, boxShadow: selected ? `0 0 8px ${e.colors.glow}` : 'none' }} />
-                      <span style={{ fontSize: 12, color: '#e6e3ee', fontWeight: 500 }}>{e.label}</span>
+                      placeholder='A*sin(B*x+C)'
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#8a8698', fontSize: 11, whiteSpace: 'nowrap' }}>
+                      <span>editing</span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F5F3EF', fontWeight: 600 }}>{activeLayer.name}</span>
                     </div>
-                  );
-                })}
-              </div>
-
-              <div style={{ position: 'absolute', left: 16, top: 96, bottom: 90, width: 226, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 6 }}>
-                {showLayers && (
-                  <div className='eo-fade-in' style={{
-                    background: 'rgba(12,12,18,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 14, padding: 10,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#cfcbd8', fontSize: 12, fontWeight: 600 }}>
-                        <span>🧱</span> LAYERS
-                      </div>
-                      <button onClick={addLayer} disabled={layers.length >= MAX_LAYERS} className='eo-btn' style={{
-                        background: 'none', border: 'none', cursor: layers.length >= MAX_LAYERS ? 'not-allowed' : 'pointer',
-                        color: layers.length >= MAX_LAYERS ? '#4d4a56' : '#cfcbd8', display: 'flex', alignItems: 'center',
-                      }} aria-label='Add layer'>
-                        <span style={{ fontSize: 14, lineHeight: 0 }}>+</span>
-                      </button>
-                    </div>
-
-                    {[...layers].map((l, i) => {
-                      const e = EMOTIONS[l.emotionKey];
-                      const isActive = l.id === activeLayerId;
-                      return (
-                        <div key={l.id} className='eo-row' onClick={() => setActiveLayerId(l.id)} style={{
-                          borderRadius: 9, padding: '6px 7px', marginBottom: 5, cursor: 'pointer',
-                          background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
-                          border: isActive ? `1px solid ${e.colors.glow}55` : '1px solid transparent',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: e.colors.glow, flexShrink: 0 }} />
-                            <span style={{ fontSize: 11.5, color: '#e6e3ee', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
-                            <span style={{ cursor: 'pointer', opacity: i === 0 ? 0.3 : 1 }} onClick={(ev) => { ev.stopPropagation(); moveLayer(l.id, -1); }}>▲</span>
-                            <span style={{ cursor: 'pointer', opacity: i === layers.length - 1 ? 0.3 : 1 }} onClick={(ev) => { ev.stopPropagation(); moveLayer(l.id, 1); }}>▼</span>
-                            {l.visible ?
-                              <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { visible: false }); }}>👁</span>
-                              : <span style={{ cursor: 'pointer', color: '#5a5764' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { visible: true }); }}>🚫</span>}
-                            {l.locked ?
-                              <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { locked: false }); }}>🔒</span>
-                              : <span style={{ cursor: 'pointer', color: '#5a5764' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { locked: true }); }}>🔓</span>}
-                            <span style={{ cursor: layers.length <= 1 ? 'not-allowed' : 'pointer', color: layers.length <= 1 ? '#3a3742' : '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); removeLayer(l.id); }}>🗑</span>
-                          </div>
-                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#6f6b7a', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.equationStr}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }} onClick={(ev) => ev.stopPropagation()}>
-                            <span style={{ fontSize: 9.5, color: '#6f6b7a', width: 34 }}>opacity</span>
-                            <input className='eo-slider' style={{ '--eo-accent': e.colors.glow, width: '100%', height: 3 }}
-                              type='range' min={0} max={1} step={0.05} value={l.opacity}
-                              onChange={(ev) => updateLayer(l.id, { opacity: parseFloat(ev.target.value) })}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', gap: 5, marginTop: 4 }} onClick={(ev) => ev.stopPropagation()}>
-                            {['normal', 'lighten'].map((b) => (
-                              <button key={b} onClick={() => updateLayer(l.id, { blend: b })} style={{
-                                fontSize: 9.5, padding: '2px 6px', borderRadius: 6, cursor: 'pointer',
-                                background: l.blend === b ? 'rgba(255,255,255,0.14)' : 'transparent',
-                                color: l.blend === b ? '#F5F3EF' : '#6f6b7a', border: '1px solid rgba(255,255,255,0.08)',
-                              }}>{b}</button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
-                )}
-
-                {activeDerived.detected.length > 0 && (
-                  <div className='eo-fade-in' style={{
-                    background: 'rgba(12,12,18,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 14, padding: 12,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#cfcbd8', fontSize: 12, fontWeight: 600 }}>
-                        <span>⚙</span> PARAMETERS
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <span style={{ cursor: activeLayer.locked ? 'not-allowed' : 'pointer', opacity: activeLayer.locked ? 0.4 : 1 }} onClick={randomizeParams}>↺</span>
-                        <span style={{ cursor: activeLayer.locked ? 'not-allowed' : 'pointer', opacity: activeLayer.locked ? 0.4 : 1 }} onClick={resetParams}>↻</span>
-                      </div>
-                    </div>
-                    {activeDerived.detected.map((k) => (
-                      <div key={k} style={{ marginBottom: 9 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#a8a4b3', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace" }}>
-                          <span>{k}</span><span>{(activeLayer.params[k] ?? 1).toFixed(2)}</span>
-                        </div>
-                        <input className='eo-slider' disabled={activeLayer.locked} style={{ '--eo-accent': activeEmotion.colors.glow, width: '100%' }}
-                          type='range' min={-10} max={10} step={0.05} value={activeLayer.params[k] ?? 1}
-                          onChange={(e) => updateLayer(activeLayer.id, { params: { ...activeLayer.params, [k]: parseFloat(e.target.value) } })}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {bookmarks.length > 0 && (
-                <div className='eo-fade-in' style={{
-                  position: 'absolute', left: '50%', bottom: 76, transform: 'translateX(-50%)',
-                  display: 'flex', alignItems: 'center', gap: 6, maxWidth: 'calc(100% - 32px)', overflowX: 'auto',
-                  background: 'rgba(12,12,18,0.56)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 999, padding: '6px 8px',
-                }}>
-                  {bookmarks.map((bookmark, index) => (
-                    <button key={`${bookmark.label}-${index}`} onClick={() => setCameraTarget(bookmark, true)} className='eo-btn' style={{
-                      border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcbd8',
-                      borderRadius: 999, padding: '5px 9px', fontSize: 10.5, cursor: 'pointer', whiteSpace: 'nowrap',
-                    }}>
-                      {bookmark.label}
-                    </button>
-                  ))}
+                  {(!draftModel.valid || !activeDerived.valid) && (
+                    <span style={{ fontSize: 10.5, color: '#ff8b93', flexShrink: 0 }}>
+                      {draftModel.error || activeDerived.error || 'Invalid equation'}
+                    </span>
+                  )}
+                  {draftModel.valid && (
+                    <span style={{ fontSize: 10.5, color: '#8a8698', flexShrink: 0 }}>
+                      {draftModel.label}
+                    </span>
+                  )}
                 </div>
-              )}
+              </div>
 
-              <div style={{
-                position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)',
-                display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(12,12,18,0.68)',
-                backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 999, padding: '9px 14px',
-                maxWidth: 'calc(100% - 32px)', overflowX: 'auto',
-              }}>
-                <button onClick={togglePlay} className='eo-btn' style={{
-                  width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className='eo-btn' onClick={togglePlay} style={{
+                  minWidth: 48, height: 48, borderRadius: 999, border: 'none', cursor: 'pointer',
                   background: primaryEmotion.colors.glow, color: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: `0 0 16px ${primaryEmotion.colors.glow}88`,
                 }} aria-label={playing ? 'Pause' : 'Play'}>
                   <Icon symbol={playing ? '❚❚' : '►'} style={{ fontSize: 16, marginLeft: playing ? 0 : 2 }} />
                 </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon symbol='⏱' style={{ color: '#8a8698' }} />
-                  <input className='eo-slider' style={{ '--eo-accent': primaryEmotion.colors.glow, width: 72 }}
-                    type='range' min={60} max={180} step={1} value={tempo} onChange={(e) => setTempo(parseInt(e.target.value, 10))} />
-                  <span style={{ fontSize: 10.5, color: '#8a8698', width: 30, fontFamily: "'JetBrains Mono', monospace" }}>{tempo}</span>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button onClick={() => setMuted((m) => !m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex' }} aria-label={muted ? 'Unmute' : 'Mute'}>
-                    <Icon symbol={muted ? '🔇' : '🔊'} />
-                  </button>
-                  <input className='eo-slider' style={{ '--eo-accent': primaryEmotion.colors.glow, width: 60 }}
-                    type='range' min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} />
-                </div>
-
-                <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.14)' }} />
-
-                <button onClick={() => resetCamera(true)} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }} aria-label='Reset viewport'>
-                  <span>0</span>
+                <button className='eo-btn' onClick={() => setPanelMode(panelMode === 'templates' ? null : 'templates')} style={{
+                  background: panelMode === 'templates' ? 'rgba(255,255,255,0.12)' : 'rgba(12,12,18,0.6)',
+                  backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, padding: '9px 12px', color: '#cfcbd8', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                }} aria-label='Show templates'>
+                  <span style={{ marginRight: 5 }}>📐</span>Templates
                 </button>
-
-                <button onClick={undoCamera} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }} aria-label='Previous viewport'>
-                  <span>↶</span>
-                </button>
-
-                <button onClick={redoCamera} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }} aria-label='Next viewport'>
-                  <span>↷</span>
-                </button>
-
-                <button onClick={saveBookmark} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }} aria-label='Save viewport bookmark'>
-                  <span>★</span> {bookmarks.length}
-                </button>
-
-                <button onClick={() => setShowNavigator((v) => !v)} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: showNavigator ? '#cfcbd8' : '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }} aria-label='Toggle mini navigator'>
-                  <span>▣</span>
-                </button>
-
-                <button onClick={shareViewport} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }} aria-label='Share viewport'>
-                  <span>↗</span>
-                </button>
-
-                <button onClick={() => setShowLayers((v) => !v)} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }}>
-                  <span>🧱</span> {layers.length}
-                </button>
-
-                <button onClick={exportPNG} className='eo-btn' style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                }} aria-label='Export PNG'>
-                  <span>⬇</span> PNG
+                <button className='eo-btn' onClick={toggleFullscreen} style={{
+                  background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cfcbd8', cursor: 'pointer',
+                }} aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
+                  <Icon symbol={fullscreen ? '⛶' : '⛶'} />
                 </button>
               </div>
             </div>
-          </div>
-        );
-      }
 
-      const root = createRoot(document.getElementById('root'));
-      root.render(<EquationOrchestra />);
-    </script>
-  </body>
+            {panelMode && (
+              <div className='eo-fade-in' style={{
+                position: 'absolute', top: 80, left: 16, right: 16, zIndex: 15,
+                background: 'rgba(12,12,18,0.85)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 14, padding: 14,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button onClick={() => setPanelMode('templates')} style={{
+                      background: panelMode === 'templates' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                      border: 'none', color: '#F5F3EF', fontSize: 13, cursor: 'pointer', padding: '8px 12px', borderRadius: 10,
+                    }}>Equation</button>
+                    <button onClick={() => setPanelMode('gallery')} style={{
+                      background: panelMode === 'gallery' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                      border: 'none', color: '#F5F3EF', fontSize: 13, cursor: 'pointer', padding: '8px 12px', borderRadius: 10,
+                    }}>Gallery</button>
+                  </div>
+                  <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={() => setPanelMode(null)}>✕</span>
+                </div>
+
+                {panelMode === 'templates' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                    {EQUATIONS.map((item) => (
+                      <div key={item.label} onClick={() => {
+                        if (!activeLayer.locked) {
+                          editLayer(activeLayer.id, { equationStr: item.eq });
+                          setEquationDraft(item.eq);
+                          setPanelMode(null);
+                        }
+                      }} className='eo-btn' style={{
+                        cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.03)', padding: '16px 14px', minHeight: 120,
+                      }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 10 }}>{item.label}</div>
+                        <div style={{ fontSize: 12, color: '#cfcbd8', lineHeight: 1.5, fontFamily: "'JetBrains Mono', monospace" }}>{item.eq}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {panelMode === 'gallery' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                    {EMOTION_KEYS.map((key) => {
+                      const emotion = EMOTIONS[key];
+                      return (
+                        <div key={key} onClick={() => {
+                          if (!activeLayer.locked) {
+                            editLayer(activeLayer.id, { emotionKey: key });
+                            setPanelMode(null);
+                          }
+                        }} className='eo-btn' style={{
+                          cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
+                          background: `linear-gradient(135deg, ${emotion.colors.bg[0]}, ${emotion.colors.bg[2]})`, padding: '18px 14px', minHeight: 120,
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{emotion.label}</div>
+                              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>Mood card</div>
+                            </div>
+                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: emotion.colors.glow, boxShadow: `0 0 10px ${emotion.colors.glow}77` }} />
+                          </div>
+                          <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>Tap to apply this mood to the active layer and update the graph styling.</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{
+              position: 'absolute', top: 80, right: 16, bottom: 90, display: 'flex', flexDirection: 'column',
+              gap: 7, overflowY: 'auto', paddingRight: 2, width: 118,
+            }}>
+              {EMOTION_KEYS.map((key) => {
+                const e = EMOTIONS[key];
+                const selected = key === activeLayer.emotionKey;
+                return (
+                  <div key={key}
+                    onClick={() => !activeLayer.locked && editLayer(activeLayer.id, { emotionKey: key })}
+                    className='eo-btn'
+                    style={{
+                      cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 10, padding: '8px 10px',
+                      background: selected ? 'rgba(255,255,255,0.1)' : 'rgba(12,12,18,0.55)', backdropFilter: 'blur(10px)',
+                      border: selected ? `1px solid ${e.colors.glow}` : '1px solid rgba(255,255,255,0.08)',
+                      display: 'flex', alignItems: 'center', gap: 8, opacity: activeLayer.locked ? 0.5 : 1,
+                    }}
+                  >
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.colors.glow, flexShrink: 0, boxShadow: selected ? `0 0 8px ${e.colors.glow}` : 'none' }} />
+                    <span style={{ fontSize: 12, color: '#e6e3ee', fontWeight: 500 }}>{e.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ position: 'absolute', left: 16, top: 96, bottom: 90, width: 226, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 6 }}>
+              {showLayers && (
+                <div className='eo-fade-in' style={{
+                  background: 'rgba(12,12,18,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 14, padding: 10,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#cfcbd8', fontSize: 12, fontWeight: 600 }}>
+                      <span>🧱</span> LAYERS
+                    </div>
+                    <button onClick={addLayer} disabled={layers.length >= MAX_LAYERS} className='eo-btn' style={{
+                      background: 'none', border: 'none', cursor: layers.length >= MAX_LAYERS ? 'not-allowed' : 'pointer',
+                      color: layers.length >= MAX_LAYERS ? '#4d4a56' : '#cfcbd8', display: 'flex', alignItems: 'center',
+                    }} aria-label='Add layer'>
+                      <span style={{ fontSize: 14, lineHeight: 0 }}>+</span>
+                    </button>
+                  </div>
+
+                  {[...layers].map((l, i) => {
+                    const e = EMOTIONS[l.emotionKey];
+                    const isActive = l.id === activeLayerId;
+                    return (
+                      <div key={l.id} className='eo-row' onClick={() => setActiveLayerId(l.id)} style={{
+                        borderRadius: 9, padding: '6px 7px', marginBottom: 5, cursor: 'pointer',
+                        background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+                        border: isActive ? `1px solid ${e.colors.glow}55` : '1px solid transparent',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: e.colors.glow, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11.5, color: '#e6e3ee', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
+                          <span style={{ cursor: 'pointer', opacity: i === 0 ? 0.3 : 1 }} onClick={(ev) => { ev.stopPropagation(); moveLayer(l.id, -1); }}>▲</span>
+                          <span style={{ cursor: 'pointer', opacity: i === layers.length - 1 ? 0.3 : 1 }} onClick={(ev) => { ev.stopPropagation(); moveLayer(l.id, 1); }}>▼</span>
+                          {l.visible ?
+                            <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { visible: false }); }}>👁</span>
+                            : <span style={{ cursor: 'pointer', color: '#5a5764' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { visible: true }); }}>🚫</span>}
+                          {l.locked ?
+                            <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { locked: false }); }}>🔒</span>
+                            : <span style={{ cursor: 'pointer', color: '#5a5764' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { locked: true }); }}>🔓</span>}
+                          <span style={{ cursor: layers.length <= 1 ? 'not-allowed' : 'pointer', color: layers.length <= 1 ? '#3a3742' : '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); removeLayer(l.id); }}>🗑</span>
+                        </div>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#6f6b7a', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.equationStr}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }} onClick={(ev) => ev.stopPropagation()}>
+                          <span style={{ fontSize: 9.5, color: '#6f6b7a', width: 34 }}>opacity</span>
+                          <input className='eo-slider' style={{ '--eo-accent': e.colors.glow, width: '100%', height: 3 }}
+                            type='range' min={0} max={1} step={0.05} value={l.opacity}
+                            onChange={(ev) => updateLayer(l.id, { opacity: parseFloat(ev.target.value) })}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 5, marginTop: 4 }} onClick={(ev) => ev.stopPropagation()}>
+                          {['normal', 'lighten'].map((b) => (
+                            <button key={b} onClick={() => updateLayer(l.id, { blend: b })} style={{
+                              fontSize: 9.5, padding: '2px 6px', borderRadius: 6, cursor: 'pointer',
+                              background: l.blend === b ? 'rgba(255,255,255,0.14)' : 'transparent',
+                              color: l.blend === b ? '#F5F3EF' : '#6f6b7a', border: '1px solid rgba(255,255,255,0.08)',
+                            }}>{b}</button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {(activeDerived.detected.length > 0 || activeDerived.model?.type === 'parametric' || activeDerived.model?.type === 'polar') && (
+                <div className='eo-fade-in' style={{
+                  background: 'rgba(12,12,18,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 14, padding: 12,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#cfcbd8', fontSize: 12, fontWeight: 600 }}>
+                      <span>⚙</span> PARAMETERS
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <span style={{ cursor: activeLayer.locked ? 'not-allowed' : 'pointer', opacity: activeLayer.locked ? 0.4 : 1 }} onClick={randomizeParams}>↺</span>
+                      <span style={{ cursor: activeLayer.locked ? 'not-allowed' : 'pointer', opacity: activeLayer.locked ? 0.4 : 1 }} onClick={resetParams}>↻</span>
+                    </div>
+                  </div>
+                  {activeDerived.detected.map((k) => (
+                    <div key={k} style={{ marginBottom: 9 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#a8a4b3', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace" }}>
+                        <span>{k}</span><span>{(activeLayer.params[k] ?? 1).toFixed(2)}</span>
+                      </div>
+                      <input className='eo-slider' disabled={activeLayer.locked} style={{ '--eo-accent': activeEmotion.colors.glow, width: '100%' }}
+                        type='range' min={-10} max={10} step={0.05} value={activeLayer.params[k] ?? 1}
+                        onChange={(e) => updateLayer(activeLayer.id, { params: { ...activeLayer.params, [k]: parseFloat(e.target.value) } })}
+                      />
+                    </div>
+                  ))}
+                  {(activeDerived.model?.type === 'parametric' || activeDerived.model?.type === 'polar') && (
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8, marginTop: 2 }}>
+                      {['__tMin', '__tMax'].map((k) => (
+                        <div key={k} style={{ marginBottom: 9 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#a8a4b3', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace" }}>
+                            <span>{k === '__tMin' ? 't min' : 't max'}</span><span>{(activeLayer.params[k] ?? (k === '__tMin' ? -Math.PI * 2 : Math.PI * 2)).toFixed(2)}</span>
+                          </div>
+                          <input className='eo-slider' disabled={activeLayer.locked} style={{ '--eo-accent': activeEmotion.colors.glow, width: '100%' }}
+                            type='range' min={-25} max={25} step={0.05} value={activeLayer.params[k] ?? (k === '__tMin' ? -Math.PI * 2 : Math.PI * 2)}
+                            onChange={(e) => updateLayer(activeLayer.id, { params: { ...activeLayer.params, [k]: parseFloat(e.target.value) } })}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {bookmarks.length > 0 && (
+              <div className='eo-fade-in' style={{
+                position: 'absolute', left: '50%', bottom: 76, transform: 'translateX(-50%)',
+                display: 'flex', alignItems: 'center', gap: 6, maxWidth: 'calc(100% - 32px)', overflowX: 'auto',
+                background: 'rgba(12,12,18,0.56)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 999, padding: '6px 8px',
+              }}>
+                {bookmarks.map((bookmark, index) => (
+                  <button key={`${bookmark.label}-${index}`} onClick={() => setCameraTarget(bookmark, true)} className='eo-btn' style={{
+                    border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcbd8',
+                    borderRadius: 999, padding: '5px 9px', fontSize: 10.5, cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                    {bookmark.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div style={{
+              position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)',
+              display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(12,12,18,0.68)',
+              backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 999, padding: '9px 14px',
+              maxWidth: 'calc(100% - 32px)', overflowX: 'auto',
+            }}>
+              <button onClick={togglePlay} className='eo-btn' style={{
+                width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                background: primaryEmotion.colors.glow, color: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 16px ${primaryEmotion.colors.glow}88`,
+              }} aria-label={playing ? 'Pause' : 'Play'}>
+                <Icon symbol={playing ? '❚❚' : '►'} style={{ fontSize: 16, marginLeft: playing ? 0 : 2 }} />
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon symbol='⏱' style={{ color: '#8a8698' }} />
+                <input className='eo-slider' style={{ '--eo-accent': primaryEmotion.colors.glow, width: 72 }}
+                  type='range' min={60} max={180} step={1} value={tempo} onChange={(e) => setTempo(parseInt(e.target.value, 10))} />
+                <span style={{ fontSize: 10.5, color: '#8a8698', width: 30, fontFamily: "'JetBrains Mono', monospace" }}>{tempo}</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => setMuted((m) => !m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex' }} aria-label={muted ? 'Unmute' : 'Mute'}>
+                  <Icon symbol={muted ? '🔇' : '🔊'} />
+                </button>
+                <input className='eo-slider' style={{ '--eo-accent': primaryEmotion.colors.glow, width: 60 }}
+                  type='range' min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} />
+              </div>
+
+              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.14)' }} />
+
+              <button onClick={() => resetCamera(true)} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }} aria-label='Reset viewport'>
+                <span>0</span>
+              </button>
+
+              <button onClick={undoCamera} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }} aria-label='Previous viewport'>
+                <span>↶</span>
+              </button>
+
+              <button onClick={redoCamera} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }} aria-label='Next viewport'>
+                <span>↷</span>
+              </button>
+
+              <button onClick={saveBookmark} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }} aria-label='Save viewport bookmark'>
+                <span>★</span> {bookmarks.length}
+              </button>
+
+              <button onClick={() => setShowNavigator((v) => !v)} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: showNavigator ? '#cfcbd8' : '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }} aria-label='Toggle mini navigator'>
+                <span>▣</span>
+              </button>
+
+              <button onClick={shareViewport} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }} aria-label='Share viewport'>
+                <span>↗</span>
+              </button>
+
+              <button onClick={() => setShowLayers((v) => !v)} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }}>
+                <span>🧱</span> {layers.length}
+              </button>
+
+              <button onClick={exportPNG} className='eo-btn' style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+              }} aria-label='Export PNG'>
+                <span>⬇</span> PNG
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<EquationOrchestra />);
+  </script>
+</body>
+
 </html>
