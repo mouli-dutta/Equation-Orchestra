@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Equation Orchestra</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; min-height: 100%; background: #0B0B0D; color: #f0edf7; }
+      body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+      #root { min-height: 100vh; padding: 0; }
+      .eo-slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.14); outline: none; }
+      .eo-slider:disabled { opacity: 0.35; }
+      .eo-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--eo-accent, #fff); cursor: pointer; box-shadow: 0 0 8px var(--eo-accent, #fff); }
+      .eo-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--eo-accent, #fff); border: none; cursor: pointer; box-shadow: 0 0 8px var(--eo-accent, #fff); }
+      .eo-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+      .eo-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+      .eo-fade-in { animation: eoFade 0.4s ease both; }
+      @keyframes eoFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+      .eo-btn { transition: all 0.15s ease; }
+      .eq-animation { animation: eqGlow 0.45s ease both; }
+      @keyframes eqGlow {
+        0% { box-shadow: 0 0 0 rgba(139,92,246,0); transform: translateY(0); }
+        25% { box-shadow: 0 0 22px rgba(139,92,246,0.22); transform: translateY(-1px); }
+        100% { box-shadow: 0 0 0 rgba(139,92,246,0); transform: translateY(0); }
+      }
+      .eo-btn:hover { transform: translateY(-1px); }
+      .eo-btn:active { transform: translateY(0); }
+      .eo-row:hover { background: rgba(255,255,255,0.05) !important; }
+      button, input, summary { font: inherit; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.10.0/lib/browser/math.js"></script>
+    <script src="https://unpkg.com/tone/build/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useRef, useEffect, useMemo, useCallback } = React;
+      const { createRoot } = ReactDOM;
+
+      const SCALES = {
+        major: [0, 2, 4, 5, 7, 9, 11],
+        minor: [0, 2, 3, 5, 7, 8, 10],
+        pentatonic: [0, 2, 4, 7, 9],
+        chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      };
+
+      const EMOTIONS = {
+        dream: {
+          label: 'Dream', root: 57,
+          colors: { bg: ['#1a1a2e', '#20263f', '#0f3460'], graph: ['#f3a6c1', '#e94560'], particle: '#f5eaf1', glow: '#e94560' },
+          camera: { motion: 'float', speed: 0.35 },
+          particles: { density: 70, behavior: 'float', size: [1.5, 4] },
+          audio: { instrument: 'ambient', scale: 'pentatonic', effects: ['reverb', 'delay'] },
+          post: { bloom: 0.75, vignette: 0.35 },
+        },
+        cosmic: {
+          label: 'Cosmic', root: 45,
+          colors: { bg: ['#04010c', '#0d0221', '#1c0a3a'], graph: ['#a78bfa', '#7c3aed'], particle: '#c4b5fd', glow: '#8b5cf6' },
+          camera: { motion: 'orbit', speed: 0.18 },
+          particles: { density: 130, behavior: 'float', size: [1, 3] },
+          audio: { instrument: 'ambient', scale: 'minor', effects: ['reverb'] },
+          post: { bloom: 0.9, vignette: 0.45 },
+        },
+        epic: {
+          label: 'Epic', root: 48,
+          colors: { bg: ['#12060a', '#2b0a12', '#4a0e1c'], graph: ['#ffb703', '#ff4d6d'], particle: '#ffd166', glow: '#ff4d6d' },
+          camera: { motion: 'zoom', speed: 0.25 },
+          particles: { density: 60, behavior: 'explode', size: [2, 5] },
+          audio: { instrument: 'cinematic', scale: 'minor', effects: ['reverb'] },
+          post: { bloom: 0.7, vignette: 0.4 },
+        },
+        calm: {
+          label: 'Calm', root: 60,
+          colors: { bg: ['#071a2b', '#0e2c44', '#153f5c'], graph: ['#9fd8ff', '#7ec8e3'], particle: '#dff3ff', glow: '#7ec8e3' },
+          camera: { motion: 'breathe', speed: 0.15 },
+          particles: { density: 40, behavior: 'float', size: [1, 3] },
+          audio: { instrument: 'cinematic', scale: 'major', effects: ['reverb'] },
+          post: { bloom: 0.4, vignette: 0.25 },
+        },
+        mystery: {
+          label: 'Mystery', root: 43,
+          colors: { bg: ['#0a0510', '#180a24', '#241033'], graph: ['#c084fc', '#7e22ce'], particle: '#a78bfa', glow: '#9333ea' },
+          camera: { motion: 'pan', speed: 0.12 },
+          particles: { density: 90, behavior: 'attract', size: [1, 3] },
+          audio: { instrument: 'ambient', scale: 'chromatic', effects: ['delay', 'reverb'] },
+          post: { bloom: 0.55, vignette: 0.55 },
+        },
+        chaos: {
+          label: 'Chaos', root: 50,
+          colors: { bg: ['#050505', '#1a0505', '#0a0a1a'], graph: ['#ff2d55', '#00e5ff'], particle: '#ffffff', glow: '#ff2d55' },
+          camera: { motion: 'orbit', speed: 0.6 },
+          particles: { density: 150, behavior: 'explode', size: [1, 6] },
+          audio: { instrument: 'percussion', scale: 'chromatic', effects: ['delay'] },
+          post: { bloom: 1, vignette: 0.3 },
+        },
+        hope: {
+          label: 'Hope', root: 55,
+          colors: { bg: ['#1a1206', '#332008', '#4d3010'], graph: ['#ffe066', '#ffd166'], particle: '#fff3c4', glow: '#ffd166' },
+          camera: { motion: 'float', speed: 0.2 },
+          particles: { density: 65, behavior: 'float', size: [1.5, 4] },
+          audio: { instrument: 'synth', scale: 'major', effects: ['delay'] },
+          post: { bloom: 0.6, vignette: 0.2 },
+        },
+        aurora: {
+          label: 'Aurora', root: 52,
+          colors: { bg: ['#020c1b', '#04182e', '#062b3d'], graph: ['#5eead4', '#a78bfa'], particle: '#99f6e4', glow: '#2dd4bf' },
+          camera: { motion: 'float', speed: 0.22 },
+          particles: { density: 100, behavior: 'flow', size: [1.5, 4] },
+          audio: { instrument: 'ambient', scale: 'pentatonic', effects: ['reverb', 'delay'] },
+          post: { bloom: 0.85, vignette: 0.35 },
+        },
+      };
+
+      const EMOTION_KEYS = Object.keys(EMOTIONS);
+
+      const TEMPLATES = [
+        { label: 'Wave', eq: 'A*sin(B*x+C)' },
+        { label: 'Power', eq: 'A*x^B' },
+        { label: 'Damped oscillation', eq: 'A*exp(-0.1*x^2)*sin(B*x)' },
+        { label: 'Interference', eq: 'A*sin(B*x)*cos(C*x)' },
+        { label: 'Spiral pulse', eq: 'sin(A*x)/(1+0.05*B*x^2)' },
+      ];
+
+      const GALLERY = [
+        { name: 'Galaxy', eq: 'sin(A*x)/(1+0.04*x^2)', params: { A: 4 }, emotion: 'cosmic' },
+        { name: 'Heartbeat', eq: 'A*exp(-0.3*sin(B*x)^2)*sin(C*x)', params: { A: 2, B: 1, C: 8 }, emotion: 'epic' },
+        { name: 'Aurora Wave', eq: 'A*sin(B*x)*cos(0.3*x)', params: { A: 2, B: 2 }, emotion: 'aurora' },
+        { name: 'Butterfly', eq: 'A*sin(B*x)*exp(cos(x))', params: { A: 0.6, B: 3 }, emotion: 'dream' },
+        { name: 'Infinity Loop', eq: 'A*sin(B*x+C)', params: { A: 3, B: 0.5, C: 0 }, emotion: 'mystery' },
+        { name: 'Still Water', eq: 'A*sin(B*x)', params: { A: 1.5, B: 1 }, emotion: 'calm' },
+      ];
+
+      const X_MIN = -12;
+      const X_MAX = 12;
+      const VISUAL_SAMPLES = 320;
+      const AUDIO_STEPS = 32;
+      const MAX_LAYERS = 4;
+      const CURVE_SAMPLE_COUNT = 420;
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
+
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
+      function detectParameters(eq) {
+        const found = new Set();
+        const re = /\b([A-Z])\b/g;
+        let m;
+        while ((m = re.exec(eq)) !== null) {
+          if (!['X', 'Y', 'T'].includes(m[1])) found.add(m[1]);
+        }
+        return [...found].sort();
+      }
+
+      function compileSafe(eq) {
+        try {
+          const node = math.parse(eq);
+          const code = node.compile();
+          code.evaluate({ x: 1, A: 1, B: 1, C: 1, D: 1 });
+          return code;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function sampleCurve(code, params, count) {
+        const raw = [];
+        let maxAbs = 0.0001;
+        for (let i = 0; i < count; i++) {
+          const x = X_MIN + (i / (count - 1)) * (X_MAX - X_MIN);
+          let y;
+          try {
+            y = code.evaluate({ x, ...params });
+            if (typeof y !== 'number' || !isFinite(y)) y = null;
+          } catch {
+            y = null;
+          }
+          if (y !== null) maxAbs = Math.max(maxAbs, Math.abs(y));
+          raw.push({ x, y });
+        }
+        const scale = maxAbs > 0 ? 1 / maxAbs : 1;
+        return raw.map((r) => ({ x: r.x, y: r.y === null ? null : r.y * scale }));
+      }
+
+      function sampleCurveRange(code, params, count, xMin, xMax) {
+        const raw = [];
+        let maxAbs = 0.0001;
+        for (let i = 0; i < count; i++) {
+          const x = xMin + (i / (count - 1)) * (xMax - xMin);
+          let y;
+          try {
+            y = code.evaluate({ x, ...params });
+            if (typeof y !== 'number' || !isFinite(y)) y = null;
+          } catch {
+            y = null;
+          }
+          if (y !== null) maxAbs = Math.max(maxAbs, Math.abs(y));
+          raw.push({ x, y });
+        }
+        const scale = maxAbs > 0 ? 1 / maxAbs : 1;
+        return raw.map((r) => ({ x: r.x, y: r.y === null ? null : r.y * scale }));
+      }
+
+      function getNiceTick(span) {
+        const normalized = span <= 0 ? 1 : span;
+        const exponent = Math.floor(Math.log10(normalized));
+        const fraction = normalized / Math.pow(10, exponent);
+        const niceFraction = fraction < 1.5 ? 1 : fraction < 3 ? 2 : fraction < 7 ? 5 : 10;
+        return niceFraction * Math.pow(10, exponent);
+      }
+
+      function formatTick(value) {
+        if (Math.abs(value) < 0.0001) return '0';
+        if (Math.abs(value) >= 1000) return value.toFixed(0);
+        if (Math.abs(value) >= 1) return value.toFixed(1).replace(/\.0$/, '');
+        return value.toFixed(2);
+      }
+
+      function computeMarkers(pts) {
+        const markers = [];
+        for (let i = 1; i < pts.length - 1; i++) {
+          const prev = pts[i - 1];
+          const cur = pts[i];
+          const next = pts[i + 1];
+          if (prev.y === null || cur.y === null || next.y === null) continue;
+          const isPeak = cur.y > prev.y && cur.y > next.y;
+          const isValley = cur.y < prev.y && cur.y < next.y;
+          const isCross = prev.y * next.y < 0;
+          if (isPeak || isValley) markers.push({ x: cur.x, y: cur.y, type: isPeak ? 'peak' : 'valley' });
+          else if (isCross) markers.push({ x: cur.x, y: 0, type: 'zero' });
+          if (markers.length >= 5) break;
+        }
+        return markers;
+      }
+
+      function smoothCurve(ctx, points) {
+        if (!points.length) return;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length - 1; i++) {
+          const current = points[i];
+          const next = points[i + 1];
+          const xc = (current.x + next.x) / 2;
+          const yc = (current.y + next.y) / 2;
+          ctx.quadraticCurveTo(current.x, current.y, xc, yc);
+        }
+        const last = points[points.length - 1];
+        ctx.lineTo(last.x, last.y);
+      }
+
+      function midiToFreq(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function valueToMidi(yNorm, scaleName, root) {
+        const steps = SCALES[scaleName];
+        const totalSteps = steps.length * 3;
+        const clamped = Math.max(-1, Math.min(1, yNorm ?? 0));
+        const idx = Math.round(((clamped + 1) / 2) * (totalSteps - 1));
+        const octave = Math.floor(idx / steps.length);
+        const degree = steps[((idx % steps.length) + steps.length) % steps.length];
+        return root + octave * 12 + degree;
+      }
+
+      let layerIdCounter = 1;
+      function makeLayer(overrides = {}) {
+        const id = layerIdCounter++;
+        return {
+          id,
+          name: `Layer ${id}`,
+          equationStr: 'A*sin(B*x+C)',
+          params: { A: 2, B: 1, C: 0 },
+          emotionKey: 'cosmic',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blend: 'normal',
+          bornAt: performance.now(),
+          ...overrides,
+        };
+      }
+
+      function buildSynth(instrument) {
+        switch (instrument) {
+          case 'ambient':
+            return new Tone.PolySynth(Tone.AMSynth, {
+              envelope: { attack: 0.6, decay: 0.3, sustain: 0.5, release: 2.2 },
+              volume: -10,
+            });
+          case 'cinematic':
+            return new Tone.PolySynth(Tone.FMSynth, {
+              envelope: { attack: 0.03, decay: 0.25, sustain: 0.4, release: 1.4 },
+              volume: -8,
+            });
+          case 'percussion':
+            return new Tone.PolySynth(Tone.MembraneSynth, {
+              envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.4 },
+              volume: -6,
+            });
+          case 'synth':
+          default:
+            return new Tone.PolySynth(Tone.Synth, {
+              oscillator: { type: 'triangle' },
+              envelope: { attack: 0.02, decay: 0.15, sustain: 0.25, release: 0.7 },
+              volume: -10,
+            });
+        }
+      }
+
+      function buildChain(emotionKey) {
+        const emotion = EMOTIONS[emotionKey];
+        const synth = buildSynth(emotion.audio.instrument);
+        const meter = new Tone.Meter({ smoothing: 0.6 });
+        let node = synth;
+        let delay = null;
+        let reverb = null;
+        if (emotion.audio.effects.includes('delay')) {
+          delay = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.25, wet: 0.22 });
+          node.connect(delay);
+          node = delay;
+        }
+        if (emotion.audio.effects.includes('reverb')) {
+          reverb = new Tone.Reverb({ decay: 3.2, wet: 0.32 });
+          node.connect(reverb);
+          node = reverb;
+        }
+        node.connect(meter);
+        node.toDestination();
+        return { synth, delay, reverb, meter, sequence: null, emotionKey };
+      }
+
+      function disposeChain(chain) {
+        if (!chain) return;
+        chain.sequence?.dispose();
+        chain.synth?.dispose();
+        chain.delay?.dispose();
+        chain.reverb?.dispose();
+        chain.meter?.dispose();
+      }
+
+      const Icon = ({ symbol, style }) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...style }}>
+          {symbol}
+        </span>
+      );
+
+      function EquationOrchestra() {
+        const [layers, setLayers] = useState(() => [makeLayer({ name: 'Layer 1' })]);
+        const [activeLayerId, setActiveLayerId] = useState(() => layers[0].id);
+        const [equationDraft, setEquationDraft] = useState(layers[0].equationStr);
+        const [playing, setPlaying] = useState(false);
+        const [tempo, setTempo] = useState(96);
+        const [volume, setVolume] = useState(0.75);
+        const [muted, setMuted] = useState(false);
+        const [panelMode, setPanelMode] = useState(null); // 'templates' | 'gallery'
+        const [showLayers, setShowLayers] = useState(true);
+        const [equationAnimating, setEquationAnimating] = useState(false);
+        const [fullscreen, setFullscreen] = useState(false);
+
+        const containerRef = useRef(null);
+        const canvasRef = useRef(null);
+        const rafRef = useRef(null);
+        const particlesByLayerRef = useRef({});
+        const starsRef = useRef([]);
+        const levelsRef = useRef({});
+        const audioChainsRef = useRef({});
+        const cameraZoomRef = useRef(1);
+        const initialDrawRef = useRef({ start: performance.now(), active: true, duration: 2200 });
+
+        const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
+
+        useEffect(() => {
+          setEquationDraft(activeLayer.equationStr);
+        }, [activeLayerId]);
+
+        useEffect(() => {
+          if (!equationAnimating) return;
+          const timer = window.setTimeout(() => setEquationAnimating(false), 460);
+          return () => window.clearTimeout(timer);
+        }, [equationAnimating]);
+
+        const derivedLayers = useMemo(() => {
+          return layers.map((l) => {
+            const code = compileSafe(l.equationStr);
+            const detected = detectParameters(l.equationStr);
+            const visualPts = code ? sampleCurve(code, l.params, VISUAL_SAMPLES) : [];
+            const audioPts = code ? sampleCurve(code, l.params, AUDIO_STEPS) : [];
+            return { ...l, code, detected, visualPts, audioPts, valid: !!code };
+          });
+        }, [layers]);
+
+        const activeDerived = derivedLayers.find((l) => l.id === activeLayerId) || derivedLayers[0];
+        const primaryLayer = derivedLayers.find((l) => l.visible) || derivedLayers[0];
+        const primaryEmotion = EMOTIONS[primaryLayer?.emotionKey || 'cosmic'];
+
+        useEffect(() => {
+          initialDrawRef.current = { start: performance.now(), active: true, duration: 2200 };
+        }, [derivedLayers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}`).join('|')]);
+
+        const updateLayer = (id, patch) => {
+          setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+        };
+        const editLayer = (id, patch) => {
+          setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch, bornAt: performance.now() } : l)));
+        };
+
+        const applyEquation = () => {
+          if (activeLayer.locked) return;
+          const eq = equationDraft.trim() || 'sin(x)';
+          editLayer(activeLayer.id, { equationStr: eq });
+          setEquationAnimating(true);
+        };
+
+        useEffect(() => {
+          setLayers((prev) =>
+            prev.map((l) => {
+              const detected = detectParameters(l.equationStr);
+              const next = {};
+              for (const k of detected) next[k] = l.params[k] !== undefined ? l.params[k] : 1;
+              const same = detected.length === Object.keys(l.params).length && detected.every((k) => k in l.params);
+              return same ? l : { ...l, params: next };
+            })
+          );
+        }, [layers.map((l) => l.equationStr).join('|')]);
+
+        const rebuildParticles = useCallback((layerId, emotionKey, w, h) => {
+          const emotion = EMOTIONS[emotionKey];
+          const count = Math.min(emotion.particles.density, 150);
+          const [minSize, maxSize] = emotion.particles.size;
+          const arr = [];
+          for (let i = 0; i < count; i++) {
+            arr.push({
+              x: Math.random() * w,
+              y: Math.random() * h,
+              seed: Math.random(),
+              speed: 0.3 + Math.random() * 0.8,
+              size: minSize + Math.random() * (maxSize - minSize),
+              vx: (Math.random() - 0.5) * 0.6,
+              vy: (Math.random() - 0.5) * 0.6,
+              life: Math.random() * 2,
+              maxLife: 1.2 + Math.random() * 1.2,
+              speedMag: 0.5 + Math.random() * 1.5,
+            });
+          }
+          particlesByLayerRef.current[layerId] = arr;
+        }, []);
+
+        useEffect(() => {
+          const canvas = canvasRef.current;
+          const container = containerRef.current;
+          if (!canvas || !container) return;
+
+          const resize = () => {
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            starsRef.current = Array.from({ length: 90 }, () => ({
+              x: Math.random() * w,
+              y: Math.random() * h,
+              r: Math.random() * 1.3 + 0.2,
+              phase: Math.random() * Math.PI * 2,
+            }));
+            layers.forEach((l) => rebuildParticles(l.id, l.emotionKey, w, h));
+          };
+
+          resize();
+          const ro = new ResizeObserver(resize);
+          ro.observe(container);
+          return () => ro.disconnect();
+        }, [rebuildParticles, layers]);
+
+        const layerEmotionSignature = layers.map((l) => `${l.id}:${l.emotionKey}`).join('|');
+        useEffect(() => {
+          const container = containerRef.current;
+          if (!container) return;
+          const w = container.clientWidth;
+          const h = container.clientHeight;
+          if (!w || !h) return;
+          layers.forEach((l) => {
+            if (!particlesByLayerRef.current[l.id]) rebuildParticles(l.id, l.emotionKey, w, h);
+          });
+        }, [layerEmotionSignature, rebuildParticles, layers]);
+
+        const prevEmotionsRef = useRef({});
+        useEffect(() => {
+          const container = containerRef.current;
+          if (!container) return;
+          const w = container.clientWidth;
+          const h = container.clientHeight;
+          if (!w || !h) return;
+          layers.forEach((l) => {
+            if (prevEmotionsRef.current[l.id] !== l.emotionKey) {
+              rebuildParticles(l.id, l.emotionKey, w, h);
+              prevEmotionsRef.current[l.id] = l.emotionKey;
+            }
+          });
+          Object.keys(particlesByLayerRef.current).forEach((idStr) => {
+            const id = Number(idStr);
+            if (!layers.find((l) => l.id === id)) delete particlesByLayerRef.current[id];
+          });
+        }, [layerEmotionSignature, rebuildParticles, layers]);
+
+        useEffect(() => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+
+          const draw = (now) => {
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const w = canvas.width / dpr;
+            const h = canvas.height / dpr;
+            const t = now / 1000;
+
+            cameraZoomRef.current *= 1.000021;
+            const zoom = cameraZoomRef.current;
+            const worldXMin = X_MIN * zoom;
+            const worldXMax = X_MAX * zoom;
+            const worldYExtent = 1.5 * zoom;
+            const worldYMin = -worldYExtent;
+            const worldYMax = worldYExtent;
+
+            const marginX = w * 0.08;
+            const marginY = h * 0.16;
+            const plotW = w - marginX * 2;
+            const plotH = h - marginY * 2;
+            const xScale = plotW / (worldXMax - worldXMin);
+            const yScale = plotH / (worldYMax - worldYMin);
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#0B0B0D';
+            ctx.fillRect(0, 0, w, h);
+            ctx.imageSmoothingEnabled = true;
+
+            const majorTickX = getNiceTick((worldXMax - worldXMin) / 8);
+            const majorTickY = getNiceTick((worldYMax - worldYMin) / 8);
+            const minorTickX = majorTickX / 4;
+            const minorTickY = majorTickY / 4;
+
+            ctx.lineWidth = 1;
+            for (let x = Math.floor(worldXMin / minorTickX) * minorTickX; x <= worldXMax + minorTickX; x += minorTickX) {
+              const sx = marginX + (x - worldXMin) * xScale;
+              if (sx < -2 || sx > w + 2) continue;
+              ctx.strokeStyle = x % majorTickX === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)';
+              ctx.beginPath();
+              ctx.moveTo(sx, marginY);
+              ctx.lineTo(sx, h - marginY);
+              ctx.stroke();
+            }
+            for (let y = Math.floor(worldYMin / minorTickY) * minorTickY; y <= worldYMax + minorTickY; y += minorTickY) {
+              const sy = marginY + (worldYMax - y) * yScale;
+              if (sy < -2 || sy > h + 2) continue;
+              ctx.strokeStyle = y % majorTickY === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)';
+              ctx.beginPath();
+              ctx.moveTo(marginX, sy);
+              ctx.lineTo(w - marginX, sy);
+              ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+            ctx.lineWidth = 1.3;
+            ctx.beginPath();
+            if (worldYMin < 0 && worldYMax > 0) {
+              const sy = marginY + (worldYMax - 0) * yScale;
+              ctx.moveTo(marginX, sy);
+              ctx.lineTo(w - marginX, sy);
+            }
+            if (worldXMin < 0 && worldXMax > 0) {
+              const sx = marginX + (0 - worldXMin) * xScale;
+              ctx.moveTo(sx, marginY);
+              ctx.lineTo(sx, h - marginY);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(255,255,255,0.72)';
+            ctx.font = '11px JetBrains Mono';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let x = Math.floor(worldXMin / majorTickX) * majorTickX; x <= worldXMax + majorTickX; x += majorTickX) {
+              if (Math.abs(x) < 1e-6) continue;
+              const sx = marginX + (x - worldXMin) * xScale;
+              if (sx < marginX || sx > w - marginX) continue;
+              const sy = marginY + (worldYMax - 0) * yScale;
+              ctx.fillText(formatTick(x), sx, sy + 8);
+            }
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let y = Math.floor(worldYMin / majorTickY) * majorTickY; y <= worldYMax + majorTickY; y += majorTickY) {
+              if (Math.abs(y) < 1e-6) continue;
+              const sy = marginY + (worldYMax - y) * yScale;
+              if (sy < marginY || sy > h - marginY) continue;
+              const sx = marginX + (0 - worldXMin) * xScale;
+              if (sx < marginX || sx > w - marginX) continue;
+              ctx.fillText(formatTick(y), sx - 10, sy);
+            }
+
+            const initialDraw = initialDrawRef.current.active
+              ? easeInOutCubic(Math.min(1, (now - initialDrawRef.current.start) / initialDrawRef.current.duration))
+              : 1;
+            if (initialDrawRef.current.active && initialDraw >= 1) {
+              initialDrawRef.current.active = false;
+            }
+
+            ctx.save();
+            ctx.translate(0, 0);
+            for (const layer of derivedLayers) {
+              if (!layer.visible || !layer.valid) continue;
+              const emotion = EMOTIONS[layer.emotionKey];
+              const graphColor = emotion.colors.graph[0];
+              const glowColor = emotion.colors.glow;
+              const pts = layer.visualPts;
+              const display = pts
+                .filter((p) => p.y !== null)
+                .map((p) => ({
+                  x: marginX + (p.x - worldXMin) * xScale,
+                  y: marginY + (worldYMax - p.y) * yScale,
+                }));
+              if (display.length < 2) continue;
+
+              const visibleCount = initialDrawRef.current.active
+                ? Math.max(2, Math.min(display.length, Math.ceil(display.length * initialDraw)))
+                : display.length;
+              const visiblePath = display.slice(0, visibleCount);
+              if (visiblePath.length < 2) continue;
+
+              ctx.globalCompositeOperation = layer.blend === 'lighten' ? 'lighter' : 'source-over';
+              ctx.lineJoin = 'round';
+              ctx.lineCap = 'round';
+
+              ctx.strokeStyle = glowColor;
+              ctx.lineWidth = 10;
+              ctx.globalAlpha = 0.15;
+              ctx.shadowColor = glowColor;
+              ctx.shadowBlur = 22;
+              smoothCurve(ctx, visiblePath);
+              ctx.stroke();
+
+              ctx.strokeStyle = graphColor;
+              ctx.lineWidth = 3.4;
+              ctx.globalAlpha = 0.55;
+              ctx.shadowColor = glowColor;
+              ctx.shadowBlur = 12;
+              smoothCurve(ctx, visiblePath);
+              ctx.stroke();
+              ctx.shadowBlur = 0;
+
+              if (initialDrawRef.current.active) {
+                const fadeStart = 0.9;
+                const penAlpha = initialDraw >= fadeStart ? Math.max(0, 1 - (initialDraw - fadeStart) / (1 - fadeStart)) : 1;
+                const headPoint = visiblePath[visiblePath.length - 1];
+                const trailLength = Math.min(12, visiblePath.length - 1);
+                const trailStart = Math.max(0, visiblePath.length - trailLength - 1);
+
+                ctx.save();
+                for (let i = trailStart; i < visiblePath.length; i++) {
+                  const pt = visiblePath[i];
+                  const trailT = (i - trailStart) / Math.max(1, visiblePath.length - trailStart - 1);
+                  ctx.fillStyle = `rgba(132, 213, 255, ${0.12 * (1 - trailT) * penAlpha})`;
+                  ctx.beginPath();
+                  ctx.arc(pt.x, pt.y, 7 * (1 - trailT) + 1.5, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+                ctx.restore();
+
+                if (headPoint) {
+                  ctx.save();
+                  ctx.shadowColor = graphColor;
+                  ctx.shadowBlur = 16 * penAlpha;
+                  ctx.fillStyle = `rgba(255,255,255,${0.95 * penAlpha})`;
+                  ctx.beginPath();
+                  ctx.arc(headPoint.x, headPoint.y, 8 * penAlpha, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.restore();
+                }
+              }
+
+              if (!initialDrawRef.current.active) {
+                const markers = computeMarkers(pts);
+                ctx.fillStyle = '#0B0B0D';
+                ctx.strokeStyle = graphColor;
+                ctx.lineWidth = 1.5;
+                for (const marker of markers) {
+                  const mx = marginX + (marker.x - worldXMin) * xScale;
+                  const my = marginY + (worldYMax - marker.y) * yScale;
+                  ctx.beginPath();
+                  ctx.arc(mx, my, 4, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.stroke();
+                }
+              }
+            }
+            ctx.restore();
+
+            const vignette = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.24, w / 2, h / 2, Math.max(w, h) * 0.8);
+            vignette.addColorStop(0, 'rgba(11,11,13,0)');
+            vignette.addColorStop(1, 'rgba(11,11,13,0.55)');
+            ctx.fillStyle = vignette;
+            ctx.fillRect(0, 0, w, h);
+
+            rafRef.current = requestAnimationFrame(draw);
+          };
+
+          rafRef.current = requestAnimationFrame(draw);
+          return () => cancelAnimationFrame(rafRef.current);
+        }, [derivedLayers, primaryLayer, primaryEmotion, playing]);
+
+        useEffect(() => {
+          const chains = audioChainsRef.current;
+          const currentIds = new Set(layers.map((l) => l.id));
+
+          Object.keys(chains).forEach((idStr) => {
+            const id = Number(idStr);
+            if (!currentIds.has(id)) {
+              disposeChain(chains[id]);
+              delete chains[id];
+            }
+          });
+
+          layers.forEach((l) => {
+            const existing = chains[l.id];
+            if (!existing || existing.emotionKey !== l.emotionKey) {
+              if (existing) disposeChain(existing);
+              chains[l.id] = buildChain(l.emotionKey);
+            }
+          });
+
+          Tone.Destination.volume.value = muted ? -Infinity : Tone.gainToDb(volume);
+        }, [layerEmotionSignature, layers, muted, volume]);
+
+        useEffect(() => {
+          return () => {
+            Object.values(audioChainsRef.current).forEach(disposeChain);
+            audioChainsRef.current = {};
+          };
+        }, []);
+
+        useEffect(() => {
+          Tone.Destination.volume.value = muted ? -Infinity : Tone.gainToDb(volume);
+        }, [volume, muted]);
+
+        useEffect(() => {
+          Tone.Transport.bpm.value = tempo;
+        }, [tempo]);
+
+        const startAllSequences = useCallback(() => {
+          const chains = audioChainsRef.current;
+          derivedLayers.forEach((layer) => {
+            const chain = chains[layer.id];
+            if (!chain || !layer.valid || !layer.audioPts.length) return;
+            chain.sequence?.dispose();
+            chain.sequence = null;
+            const emotion = EMOTIONS[layer.emotionKey];
+            const indices = layer.audioPts.map((_, i) => i);
+            const seq = new Tone.Sequence(
+              (time, i) => {
+                const pt = layer.audioPts[i];
+                if (!pt || pt.y === null) return;
+                const midi = valueToMidi(pt.y, emotion.audio.scale, emotion.root);
+                chain.synth.triggerAttackRelease(midiToFreq(midi), '8n', time);
+              },
+              indices,
+              '8n'
+            );
+            seq.start(0);
+            chain.sequence = seq;
+          });
+        }, [derivedLayers]);
+
+        useEffect(() => {
+          if (!playing) return;
+          startAllSequences();
+        }, [layers.map((l) => `${l.id}:${l.equationStr}:${JSON.stringify(l.params)}:${l.emotionKey}`).join('|'), playing, startAllSequences]);
+
+        const togglePlay = useCallback(async () => {
+          await Tone.start();
+          if (playing) {
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
+            Object.values(audioChainsRef.current).forEach((c) => { c.sequence?.dispose(); c.sequence = null; });
+            setPlaying(false);
+          } else {
+            Tone.Transport.bpm.value = tempo;
+            startAllSequences();
+            Tone.Transport.start();
+            setPlaying(true);
+          }
+        }, [playing, tempo, startAllSequences]);
+
+        const toggleFullscreen = useCallback(() => {
+          const el = containerRef.current;
+          if (!document.fullscreenElement) { el?.requestFullscreen?.then(() => setFullscreen(true)).catch(() => {}); }
+          else { document.exitFullscreen?.(); }
+        }, []);
+
+        useEffect(() => {
+          const onChange = () => setFullscreen(!!document.fullscreenElement);
+          document.addEventListener('fullscreenchange', onChange);
+          return () => document.removeEventListener('fullscreenchange', onChange);
+        }, []);
+
+        const addLayer = () => {
+          if (layers.length >= MAX_LAYERS) return;
+          const usedEmotions = new Set(layers.map((l) => l.emotionKey));
+          const nextEmotion = EMOTION_KEYS.find((k) => !usedEmotions.has(k)) || EMOTION_KEYS[layers.length % EMOTION_KEYS.length];
+          const nl = makeLayer({ name: `Layer ${layers.length + 1}`, emotionKey: nextEmotion, opacity: 0.85 });
+          setLayers((prev) => [...prev, nl]);
+          setActiveLayerId(nl.id);
+        };
+
+        const removeLayer = (id) => {
+          if (layers.length <= 1) return;
+          setLayers((prev) => prev.filter((l) => l.id !== id));
+          if (activeLayerId === id) {
+            const remaining = layers.filter((l) => l.id !== id);
+            setActiveLayerId(remaining[0]?.id);
+          }
+        };
+
+        const moveLayer = (id, dir) => {
+          setLayers((prev) => {
+            const idx = prev.findIndex((l) => l.id === id);
+            const swapIdx = idx + dir;
+            if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+            const next = [...prev];
+            [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+            return next;
+          });
+        };
+
+        const randomizeParams = () => {
+          if (activeLayer.locked) return;
+          setLayers((prev) => prev.map((l) => {
+            if (l.id !== activeLayerId) return l;
+            const next = { ...l.params };
+            for (const k of Object.keys(next)) next[k] = +(Math.random() * 8 - 4).toFixed(2);
+            return { ...l, params: next };
+          }));
+        };
+
+        const resetParams = () => {
+          if (activeLayer.locked) return;
+          setLayers((prev) => prev.map((l) => {
+            if (l.id !== activeLayerId) return l;
+            const next = {};
+            for (const k of Object.keys(l.params)) next[k] = 1;
+            return { ...l, params: next };
+          }));
+        };
+
+        const loadPreset = (preset) => {
+          layerIdCounter = 1;
+          const nl = makeLayer({ name: 'Layer 1', equationStr: preset.eq, params: preset.params, emotionKey: preset.emotion });
+          setLayers([nl]);
+          setActiveLayerId(nl.id);
+          setEquationDraft(preset.eq);
+          setPanelMode(null);
+          initialDrawRef.current = { start: performance.now(), active: true, duration: 2200 };
+        };
+
+        const exportPNG = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const link = document.createElement('a');
+          link.download = 'equation-orchestra-scene.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        };
+
+        const activeEmotion = EMOTIONS[activeLayer.emotionKey];
+
+        return (
+          <div style={{ fontFamily: "'Inter', sans-serif", minHeight: '100vh', background: '#0B0B0D', color: '#F5F3EF' }}>
+            <div
+              ref={containerRef}
+              style={{
+                position: 'relative', width: '100%', minHeight: '100vh', overflow: 'hidden', background: '#0B0B0D',
+              }}
+            >
+              <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, display: 'block' }} />
+
+              <div style={{
+                position: 'absolute', top: 20, left: 16, right: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between',
+              }}>
+                <div className={equationAnimating ? 'eq-animation' : ''} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)',
+                  border: `1px solid ${activeLayer.locked ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 12, padding: '8px 10px', flex: '1 1 240px', minWidth: 200,
+                }}>
+                  <Icon symbol='✨' style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <input
+                        value={equationDraft}
+                        disabled={activeLayer.locked}
+                        onChange={(e) => setEquationDraft(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && applyEquation()}
+                        onBlur={applyEquation}
+                        spellCheck={false}
+                        style={{
+                          background: 'transparent', border: 'none', outline: 'none',
+                          color: activeLayer.locked ? '#66626f' : '#F5F3EF',
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 14, width: '100%', letterSpacing: 0.2,
+                        }}
+                        placeholder='A*sin(B*x+C)'
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#8a8698', fontSize: 11, whiteSpace: 'nowrap' }}>
+                        <span>editing</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F5F3EF', fontWeight: 600 }}>{activeLayer.name}</span>
+                      </div>
+                    </div>
+                    {!activeDerived.valid && (
+                      <span style={{ fontSize: 10.5, color: '#ff8b93', flexShrink: 0 }}>invalid</span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className='eo-btn' onClick={togglePlay} style={{
+                    minWidth: 48, height: 48, borderRadius: 999, border: 'none', cursor: 'pointer',
+                    background: primaryEmotion.colors.glow, color: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `0 0 16px ${primaryEmotion.colors.glow}88`,
+                  }} aria-label={playing ? 'Pause' : 'Play'}>
+                    <Icon symbol={playing ? '❚❚' : '►'} style={{ fontSize: 16, marginLeft: playing ? 0 : 2 }} />
+                  </button>
+                  <button className='eo-btn' onClick={() => setPanelMode(panelMode === 'templates' ? null : 'templates')} style={{
+                    background: panelMode === 'templates' ? 'rgba(255,255,255,0.12)' : 'rgba(12,12,18,0.6)',
+                    backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 12, padding: '9px 12px', color: '#cfcbd8', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                  }} aria-label='Show templates'>
+                    <span style={{ marginRight: 5 }}>📐</span>Templates
+                  </button>
+                  <button className='eo-btn' onClick={toggleFullscreen} style={{
+                    background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 12, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cfcbd8', cursor: 'pointer',
+                  }} aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
+                    <Icon symbol={fullscreen ? '⛶' : '⛶'} />
+                  </button>
+                </div>
+              </div>
+
+              {panelMode && (
+                <div className='eo-fade-in' style={{
+                  position: 'absolute', top: 80, left: 16, right: 16, zIndex: 15,
+                  background: 'rgba(12,12,18,0.85)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 14, padding: 14,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button onClick={() => setPanelMode('templates')} style={{
+                        background: panelMode === 'templates' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                        border: 'none', color: '#F5F3EF', fontSize: 13, cursor: 'pointer', padding: '8px 12px', borderRadius: 10,
+                      }}>Equation</button>
+                      <button onClick={() => setPanelMode('gallery')} style={{
+                        background: panelMode === 'gallery' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                        border: 'none', color: '#F5F3EF', fontSize: 13, cursor: 'pointer', padding: '8px 12px', borderRadius: 10,
+                      }}>Gallery</button>
+                    </div>
+                    <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={() => setPanelMode(null)}>✕</span>
+                  </div>
+
+                  {panelMode === 'templates' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                      {TEMPLATES.map((item) => (
+                        <div key={item.label} onClick={() => {
+                          if (!activeLayer.locked) {
+                            editLayer(activeLayer.id, { equationStr: item.eq });
+                            setEquationDraft(item.eq);
+                            setPanelMode(null);
+                          }
+                        }} className='eo-btn' style={{
+                          cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
+                          background: 'rgba(255,255,255,0.03)', padding: '16px 14px', minHeight: 120,
+                        }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 10 }}>{item.label}</div>
+                          <div style={{ fontSize: 12, color: '#cfcbd8', lineHeight: 1.5, fontFamily: "'JetBrains Mono', monospace" }}>{item.eq}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {panelMode === 'gallery' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                      {EMOTION_KEYS.map((key) => {
+                        const emotion = EMOTIONS[key];
+                        return (
+                          <div key={key} onClick={() => {
+                            if (!activeLayer.locked) {
+                              editLayer(activeLayer.id, { emotionKey: key });
+                              setPanelMode(null);
+                            }
+                          }} className='eo-btn' style={{
+                            cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
+                            background: `linear-gradient(135deg, ${emotion.colors.bg[0]}, ${emotion.colors.bg[2]})`, padding: '18px 14px', minHeight: 120,
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                              <div>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{emotion.label}</div>
+                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>Mood card</div>
+                              </div>
+                              <div style={{ width: 12, height: 12, borderRadius: '50%', background: emotion.colors.glow, boxShadow: `0 0 10px ${emotion.colors.glow}77` }} />
+                            </div>
+                            <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>Tap to apply this mood to the active layer and update the graph styling.</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{
+                position: 'absolute', top: 80, right: 16, bottom: 90, display: 'flex', flexDirection: 'column',
+                gap: 7, overflowY: 'auto', paddingRight: 2, width: 118,
+              }}>
+                {EMOTION_KEYS.map((key) => {
+                  const e = EMOTIONS[key];
+                  const selected = key === activeLayer.emotionKey;
+                  return (
+                    <div key={key}
+                      onClick={() => !activeLayer.locked && editLayer(activeLayer.id, { emotionKey: key })}
+                      className='eo-btn'
+                      style={{
+                        cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 10, padding: '8px 10px',
+                        background: selected ? 'rgba(255,255,255,0.1)' : 'rgba(12,12,18,0.55)', backdropFilter: 'blur(10px)',
+                        border: selected ? `1px solid ${e.colors.glow}` : '1px solid rgba(255,255,255,0.08)',
+                        display: 'flex', alignItems: 'center', gap: 8, opacity: activeLayer.locked ? 0.5 : 1,
+                      }}
+                    >
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.colors.glow, flexShrink: 0, boxShadow: selected ? `0 0 8px ${e.colors.glow}` : 'none' }} />
+                      <span style={{ fontSize: 12, color: '#e6e3ee', fontWeight: 500 }}>{e.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ position: 'absolute', left: 16, top: 96, bottom: 90, width: 226, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 6 }}>
+                {showLayers && (
+                  <div className='eo-fade-in' style={{
+                    background: 'rgba(12,12,18,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 14, padding: 10,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#cfcbd8', fontSize: 12, fontWeight: 600 }}>
+                        <span>🧱</span> LAYERS
+                      </div>
+                      <button onClick={addLayer} disabled={layers.length >= MAX_LAYERS} className='eo-btn' style={{
+                        background: 'none', border: 'none', cursor: layers.length >= MAX_LAYERS ? 'not-allowed' : 'pointer',
+                        color: layers.length >= MAX_LAYERS ? '#4d4a56' : '#cfcbd8', display: 'flex', alignItems: 'center',
+                      }} aria-label='Add layer'>
+                        <span style={{ fontSize: 14, lineHeight: 0 }}>+</span>
+                      </button>
+                    </div>
+
+                    {[...layers].map((l, i) => {
+                      const e = EMOTIONS[l.emotionKey];
+                      const isActive = l.id === activeLayerId;
+                      return (
+                        <div key={l.id} className='eo-row' onClick={() => setActiveLayerId(l.id)} style={{
+                          borderRadius: 9, padding: '6px 7px', marginBottom: 5, cursor: 'pointer',
+                          background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+                          border: isActive ? `1px solid ${e.colors.glow}55` : '1px solid transparent',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: e.colors.glow, flexShrink: 0 }} />
+                            <span style={{ fontSize: 11.5, color: '#e6e3ee', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
+                            <span style={{ cursor: 'pointer', opacity: i === 0 ? 0.3 : 1 }} onClick={(ev) => { ev.stopPropagation(); moveLayer(l.id, -1); }}>▲</span>
+                            <span style={{ cursor: 'pointer', opacity: i === layers.length - 1 ? 0.3 : 1 }} onClick={(ev) => { ev.stopPropagation(); moveLayer(l.id, 1); }}>▼</span>
+                            {l.visible ?
+                              <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { visible: false }); }}>👁</span>
+                              : <span style={{ cursor: 'pointer', color: '#5a5764' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { visible: true }); }}>🚫</span>}
+                            {l.locked ?
+                              <span style={{ cursor: 'pointer', color: '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { locked: false }); }}>🔒</span>
+                              : <span style={{ cursor: 'pointer', color: '#5a5764' }} onClick={(ev) => { ev.stopPropagation(); updateLayer(l.id, { locked: true }); }}>🔓</span>}
+                            <span style={{ cursor: layers.length <= 1 ? 'not-allowed' : 'pointer', color: layers.length <= 1 ? '#3a3742' : '#8a8698' }} onClick={(ev) => { ev.stopPropagation(); removeLayer(l.id); }}>🗑</span>
+                          </div>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#6f6b7a', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.equationStr}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }} onClick={(ev) => ev.stopPropagation()}>
+                            <span style={{ fontSize: 9.5, color: '#6f6b7a', width: 34 }}>opacity</span>
+                            <input className='eo-slider' style={{ '--eo-accent': e.colors.glow, width: '100%', height: 3 }}
+                              type='range' min={0} max={1} step={0.05} value={l.opacity}
+                              onChange={(ev) => updateLayer(l.id, { opacity: parseFloat(ev.target.value) })}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: 5, marginTop: 4 }} onClick={(ev) => ev.stopPropagation()}>
+                            {['normal', 'lighten'].map((b) => (
+                              <button key={b} onClick={() => updateLayer(l.id, { blend: b })} style={{
+                                fontSize: 9.5, padding: '2px 6px', borderRadius: 6, cursor: 'pointer',
+                                background: l.blend === b ? 'rgba(255,255,255,0.14)' : 'transparent',
+                                color: l.blend === b ? '#F5F3EF' : '#6f6b7a', border: '1px solid rgba(255,255,255,0.08)',
+                              }}>{b}</button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeDerived.detected.length > 0 && (
+                  <div className='eo-fade-in' style={{
+                    background: 'rgba(12,12,18,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 14, padding: 12,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#cfcbd8', fontSize: 12, fontWeight: 600 }}>
+                        <span>⚙</span> PARAMETERS
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <span style={{ cursor: activeLayer.locked ? 'not-allowed' : 'pointer', opacity: activeLayer.locked ? 0.4 : 1 }} onClick={randomizeParams}>↺</span>
+                        <span style={{ cursor: activeLayer.locked ? 'not-allowed' : 'pointer', opacity: activeLayer.locked ? 0.4 : 1 }} onClick={resetParams}>↻</span>
+                      </div>
+                    </div>
+                    {activeDerived.detected.map((k) => (
+                      <div key={k} style={{ marginBottom: 9 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#a8a4b3', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace" }}>
+                          <span>{k}</span><span>{(activeLayer.params[k] ?? 1).toFixed(2)}</span>
+                        </div>
+                        <input className='eo-slider' disabled={activeLayer.locked} style={{ '--eo-accent': activeEmotion.colors.glow, width: '100%' }}
+                          type='range' min={-10} max={10} step={0.05} value={activeLayer.params[k] ?? 1}
+                          onChange={(e) => updateLayer(activeLayer.id, { params: { ...activeLayer.params, [k]: parseFloat(e.target.value) } })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)',
+                display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(12,12,18,0.68)',
+                backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 999, padding: '9px 14px',
+              }}>
+                <button onClick={togglePlay} className='eo-btn' style={{
+                  width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                  background: primaryEmotion.colors.glow, color: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: `0 0 16px ${primaryEmotion.colors.glow}88`,
+                }} aria-label={playing ? 'Pause' : 'Play'}>
+                  <Icon symbol={playing ? '❚❚' : '►'} style={{ fontSize: 16, marginLeft: playing ? 0 : 2 }} />
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon symbol='⏱' style={{ color: '#8a8698' }} />
+                  <input className='eo-slider' style={{ '--eo-accent': primaryEmotion.colors.glow, width: 72 }}
+                    type='range' min={60} max={180} step={1} value={tempo} onChange={(e) => setTempo(parseInt(e.target.value, 10))} />
+                  <span style={{ fontSize: 10.5, color: '#8a8698', width: 30, fontFamily: "'JetBrains Mono', monospace" }}>{tempo}</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => setMuted((m) => !m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex' }} aria-label={muted ? 'Unmute' : 'Mute'}>
+                    <Icon symbol={muted ? '🔇' : '🔊'} />
+                  </button>
+                  <input className='eo-slider' style={{ '--eo-accent': primaryEmotion.colors.glow, width: 60 }}
+                    type='range' min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} />
+                </div>
+
+                <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.14)' }} />
+
+                <button onClick={() => setShowLayers((v) => !v)} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }}>
+                  <span>🧱</span> {layers.length}
+                </button>
+
+                <button onClick={exportPNG} className='eo-btn' style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#8a8698', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                }} aria-label='Export PNG'>
+                  <span>⬇</span> PNG
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const root = createRoot(document.getElementById('root'));
+      root.render(<EquationOrchestra />);
+    </script>
+  </body>
+</html>
