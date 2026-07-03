@@ -248,6 +248,22 @@
       { label: "Snowflake", eq: "sqrt(x*x+y*y)=1+0.2*cos(6*atan2(y,x))" },
       { label: "Clover", eq: "sqrt(x*x+y*y)=sin(4*atan2(y,x))" },
       { label: "Galaxy", eq: "sqrt(x*x+y*y)=1+0.1*sin(30*atan2(y,x)+5*sqrt(x*x+y*y))" },
+      { label: "Ripple", eq: "sin(5*sqrt(x*x+y*y))=0" },
+      { label: "Spiral Fractal", eq: "sin(8*log(sqrt(x*x+y*y))-6*atan2(y,x))=0" },
+      { label: "Recursive Web", eq: "sin(12*sqrt(x*x+y*y))*cos(8*atan2(y,x))=0" },
+      { label: "Crystal Web", eq: "cos(20*sqrt(x*x+y*y))*sin(12*atan2(y,x))=0" },
+      { label: "Fern Wave", eq: "sin(10*x)*cos(10*y)=sin(5*sqrt(x*x+y*y))" },
+      { label: "Chaos Rings", eq: "sin(30*sqrt(x*x+y*y))*sin(7*atan2(y,x))=0" },
+    ];
+
+
+    const GALLERY = [
+      { name: 'Galaxy', eq: 'sin(A*x)/(1+0.04*x^2)', params: { A: 4 }, emotion: 'cosmic' },
+      { name: 'Heartbeat', eq: 'A*exp(-0.3*sin(B*x)^2)*sin(C*x)', params: { A: 2, B: 1, C: 8 }, emotion: 'epic' },
+      { name: 'Aurora Wave', eq: 'A*sin(B*x)*cos(0.3*x)', params: { A: 2, B: 2 }, emotion: 'aurora' },
+      { name: 'Butterfly', eq: 'A*sin(B*x)*exp(cos(x))', params: { A: 0.6, B: 3 }, emotion: 'dream' },
+      { name: 'Infinity Loop', eq: 'A*sin(B*x+C)', params: { A: 3, B: 0.5, C: 0 }, emotion: 'mystery' },
+      { name: 'Still Water', eq: 'A*sin(B*x)', params: { A: 1.5, B: 1 }, emotion: 'calm' },
     ];
 
     const X_MIN = -12;
@@ -928,30 +944,44 @@
     }
 
     function buildSynth(instrument) {
+      let synth;
       switch (instrument) {
         case 'ambient':
-          return new Tone.PolySynth(Tone.AMSynth, {
-            envelope: { attack: 0.6, decay: 0.3, sustain: 0.5, release: 2.2 },
+          synth = new Tone.PolySynth(Tone.AMSynth, {
+            // Attack was 0.6s, which is longer than many of the notes this app
+            // schedules (especially on dense closed-curve loops). A note that gets
+            // released before its attack finishes barely makes any sound, which is
+            // why this mood could seem to "not play" on some equations.
+            envelope: { attack: 0.1, decay: 0.25, sustain: 0.5, release: 1.6 },
             volume: -10,
           });
+          break;
         case 'cinematic':
-          return new Tone.PolySynth(Tone.FMSynth, {
+          synth = new Tone.PolySynth(Tone.FMSynth, {
             envelope: { attack: 0.03, decay: 0.25, sustain: 0.4, release: 1.4 },
             volume: -8,
           });
+          break;
         case 'percussion':
-          return new Tone.PolySynth(Tone.MembraneSynth, {
+          synth = new Tone.PolySynth(Tone.MembraneSynth, {
             envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.4 },
             volume: -6,
           });
+          break;
         case 'synth':
         default:
-          return new Tone.PolySynth(Tone.Synth, {
+          synth = new Tone.PolySynth(Tone.Synth, {
             oscillator: { type: 'triangle' },
             envelope: { attack: 0.02, decay: 0.15, sustain: 0.25, release: 0.7 },
             volume: -10,
           });
+          break;
       }
+      // Long-release moods (ambient especially) can easily have more notes ringing
+      // out simultaneously than the default 32-voice limit on dense equations,
+      // silently dropping/stealing voices. Give every instrument more headroom.
+      synth.maxPolyphony = 64;
+      return synth;
     }
 
     function buildChain(emotionKey) {
@@ -1890,7 +1920,7 @@
                   const midi = valueToMidi(yNorm, emotion.audio.scale, emotion.root);
                   const curvature = Math.abs(p.r - prev.r) / maxR;
                   const velocity = Math.max(0.22, Math.min(0.95, 0.42 + curvature * 4));
-                  chain.synth.triggerAttackRelease(midiToFreq(midi), stepDur * 0.92, time, velocity);
+                  chain.synth.triggerAttackRelease(midiToFreq(midi), Math.max(0.05, stepDur * 0.92), time, velocity);
                 } catch (noteErr) {
                   // Skip a bad note rather than break the transport.
                 }
@@ -2187,27 +2217,35 @@
             {showMoodPanel ? (
               <div className='eo-fade-in' style={{
                 position: 'absolute', top: 80, right: 16, bottom: 90, display: 'flex', flexDirection: 'column',
-                gap: 7, overflowY: 'auto', paddingRight: 2, width: 118,
+                gap: 7, width: 118,
               }}>
-                {EMOTION_KEYS.map((key) => {
-                  const e = EMOTIONS[key];
-                  const selected = key === activeLayer.emotionKey;
-                  return (
-                    <div key={key}
-                      onClick={() => !activeLayer.locked && editLayer(activeLayer.id, { emotionKey: key })}
-                      className='eo-btn'
-                      style={{
-                        cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 10, padding: '8px 10px',
-                        background: selected ? 'rgba(255,255,255,0.1)' : 'rgba(12,12,18,0.55)', backdropFilter: 'blur(10px)',
-                        border: selected ? `1px solid ${e.colors.glow}` : '1px solid rgba(255,255,255,0.08)',
-                        display: 'flex', alignItems: 'center', gap: 8, opacity: activeLayer.locked ? 0.5 : 1,
-                      }}
-                    >
-                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.colors.glow, flexShrink: 0, boxShadow: selected ? `0 0 8px ${e.colors.glow}` : 'none' }} />
-                      <span style={{ fontSize: 12, color: '#e6e3ee', fontWeight: 500 }}>{e.label}</span>
-                    </div>
-                  );
-                })}
+                <button onClick={() => setShowMoodPanel(false)} className='eo-btn' aria-label='Hide mood panel' style={{
+                  alignSelf: 'flex-end', background: 'rgba(12,12,18,0.6)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8a8698', cursor: 'pointer', flexShrink: 0,
+                }}>
+                  <span style={{ fontSize: 12 }}>▸</span>
+                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, overflowY: 'auto', paddingRight: 2, flex: 1, minHeight: 0 }}>
+                  {EMOTION_KEYS.map((key) => {
+                    const e = EMOTIONS[key];
+                    const selected = key === activeLayer.emotionKey;
+                    return (
+                      <div key={key}
+                        onClick={() => !activeLayer.locked && editLayer(activeLayer.id, { emotionKey: key })}
+                        className='eo-btn'
+                        style={{
+                          cursor: activeLayer.locked ? 'not-allowed' : 'pointer', borderRadius: 10, padding: '8px 10px',
+                          background: selected ? 'rgba(255,255,255,0.1)' : 'rgba(12,12,18,0.55)', backdropFilter: 'blur(10px)',
+                          border: selected ? `1px solid ${e.colors.glow}` : '1px solid rgba(255,255,255,0.08)',
+                          display: 'flex', alignItems: 'center', gap: 8, opacity: activeLayer.locked ? 0.5 : 1,
+                        }}
+                      >
+                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.colors.glow, flexShrink: 0, boxShadow: selected ? `0 0 8px ${e.colors.glow}` : 'none' }} />
+                        <span style={{ fontSize: 12, color: '#e6e3ee', fontWeight: 500 }}>{e.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <button onClick={() => setShowMoodPanel(true)} className='eo-btn' aria-label='Show mood panel' style={{
